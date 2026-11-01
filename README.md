@@ -2,7 +2,7 @@
 
 ## README
 
-This is my x86 toolchain project
+This is my 16bit x86 toolchain project
 
 There is no real reason for this.  You are most likely better off using NASM or MASM.
 This is a vanity project - to check a box and say I played in that pool.
