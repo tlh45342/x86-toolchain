@@ -1,0 +1,1 @@
+int helper(void){return 0;} int main(int argc,char**argv){char *p;p=argv[1];return p[0]=='x';}

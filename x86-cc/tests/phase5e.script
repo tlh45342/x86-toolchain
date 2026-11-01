@@ -1,0 +1,11 @@
+logfile O:\x86\toolchain\x86-cc\tests\phase5e.log
+version
+vm create
+set cpu debug=exec
+set trace-format extended
+load O:\x86\toolchain\x86-cc\tests\struct_arrow_member_array_index.bin 0000:1000
+cpu regs clear
+set IP 0x1000
+set run steps 5000
+run
+regs

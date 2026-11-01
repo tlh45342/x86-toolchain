@@ -1,0 +1,13 @@
+logfile opened: tests\bj_mixed.log
+created vm id=0 (current)
+0000:1000  E8 01 00                 call 0x1004
+0000:1004  55                       push bp
+0000:1005  89 E5                    mov bp, sp
+0000:1007  B8 2A 00                 mov ax, 0x002A
+0000:100A  E9 00 00                 jmp 0x100D
+0000:100D  89 EC                    mov sp, bp
+0000:100F  5D                       pop bp
+0000:1010  C3                       ret
+0000:1003  F4                       hlt
+AX=002A BX=0000 CX=0000 DX=0000  SI=0000 DI=0000 BP=0000 SP=FFFE
+CS=0000 IP=1004 DS=0000 ES=0000 SS=0000  FLAGS=0002

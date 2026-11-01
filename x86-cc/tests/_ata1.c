@@ -1,0 +1,1 @@
+int f(void *buf){int *p;unsigned int i;p=(int *)buf;i=0;while(i<256){p[i]=7;i=i+1;}return 0;} int main(void){return 0;}\n

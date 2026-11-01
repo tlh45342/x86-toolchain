@@ -1,0 +1,1 @@
+int g(unsigned long x,void *p){return;} int f(unsigned long x,void *p){return g(x,p);} int main(void){return 0;}\n

@@ -1,0 +1,1765 @@
+gcc -std=c11 -Wall -Wextra -O2 -o x86-cc.exe x86-cc.c
+python tests/run_tests.py
+Running x86-cc 0.0.36 tests...
+  PASS version
+
+Phase 0 - Compiler Seed
+------------------------------------------------------------------------
+  PASS return42 -S
+  PASS return42 assembly result
+  PASS return42 compile
+  PASS return42 binary bytes
+  PASS return42 VM run
+  PASS return42 AX=002A
+  PASS return42 HLT
+  PASS add_constants -S
+  PASS add_constants assembly result
+  PASS add_constants compile
+  PASS add_constants binary bytes
+  PASS add_constants VM run
+  PASS add_constants AX=002A
+  PASS add_constants HLT
+
+Phase 1A - Additive Expressions
+------------------------------------------------------------------------
+  PASS sub_constants -S
+  PASS sub_constants assembly result
+  PASS sub_constants compile
+  PASS sub_constants binary bytes
+  PASS sub_constants VM run
+  PASS sub_constants AX=002A
+  PASS sub_constants HLT
+  PASS add_chain -S
+  PASS add_chain assembly result
+  PASS add_chain compile
+  PASS add_chain binary bytes
+  PASS add_chain VM run
+  PASS add_chain AX=002A
+  PASS add_chain HLT
+  PASS sub_chain -S
+  PASS sub_chain assembly result
+  PASS sub_chain compile
+  PASS sub_chain binary bytes
+  PASS sub_chain VM run
+  PASS sub_chain AX=002A
+  PASS sub_chain HLT
+  PASS add_sub_chain -S
+  PASS add_sub_chain assembly result
+  PASS add_sub_chain compile
+  PASS add_sub_chain binary bytes
+  PASS add_sub_chain VM run
+  PASS add_sub_chain AX=002A
+  PASS add_sub_chain HLT
+  PASS parentheses -S
+  PASS parentheses assembly result
+  PASS parentheses compile
+  PASS parentheses binary bytes
+  PASS parentheses VM run
+  PASS parentheses AX=002A
+  PASS parentheses HLT
+  PASS parentheses_group -S
+  PASS parentheses_group assembly result
+  PASS parentheses_group compile
+  PASS parentheses_group binary bytes
+  PASS parentheses_group VM run
+  PASS parentheses_group AX=0026
+  PASS parentheses_group HLT
+  PASS parentheses_nested -S
+  PASS parentheses_nested assembly result
+  PASS parentheses_nested compile
+  PASS parentheses_nested binary bytes
+  PASS parentheses_nested VM run
+  PASS parentheses_nested AX=002A
+  PASS parentheses_nested HLT
+  PASS unary_plus -S
+  PASS unary_plus assembly result
+  PASS unary_plus compile
+  PASS unary_plus binary bytes
+  PASS unary_plus VM run
+  PASS unary_plus AX=002A
+  PASS unary_plus HLT
+  PASS unary_minus -S
+  PASS unary_minus assembly result
+  PASS unary_minus compile
+  PASS unary_minus binary bytes
+  PASS unary_minus VM run
+  PASS unary_minus AX=FFFF
+  PASS unary_minus HLT
+  PASS unary_expression -S
+  PASS unary_expression assembly result
+  PASS unary_expression compile
+  PASS unary_expression binary bytes
+  PASS unary_expression VM run
+  PASS unary_expression AX=002A
+  PASS unary_expression HLT
+
+Phase 1B - Multiplicative Expressions and Precedence
+------------------------------------------------------------------------
+  PASS mul_constants -S
+  PASS mul_constants assembly result
+  PASS mul_constants compile
+  PASS mul_constants binary bytes
+  PASS mul_constants VM run
+  PASS mul_constants AX=002A
+  PASS mul_constants HLT
+  PASS div_constants -S
+  PASS div_constants assembly result
+  PASS div_constants compile
+  PASS div_constants binary bytes
+  PASS div_constants VM run
+  PASS div_constants AX=002A
+  PASS div_constants HLT
+  PASS rem_constants -S
+  PASS rem_constants assembly result
+  PASS rem_constants compile
+  PASS rem_constants binary bytes
+  PASS rem_constants VM run
+  PASS rem_constants AX=002A
+  PASS rem_constants HLT
+  PASS mul_chain -S
+  PASS mul_chain assembly result
+  PASS mul_chain compile
+  PASS mul_chain binary bytes
+  PASS mul_chain VM run
+  PASS mul_chain AX=002A
+  PASS mul_chain HLT
+  PASS div_mul_chain -S
+  PASS div_mul_chain assembly result
+  PASS div_mul_chain compile
+  PASS div_mul_chain binary bytes
+  PASS div_mul_chain VM run
+  PASS div_mul_chain AX=002A
+  PASS div_mul_chain HLT
+  PASS precedence_mul_add -S
+  PASS precedence_mul_add assembly result
+  PASS precedence_mul_add compile
+  PASS precedence_mul_add binary bytes
+  PASS precedence_mul_add VM run
+  PASS precedence_mul_add AX=002A
+  PASS precedence_mul_add HLT
+  PASS precedence_div_sub -S
+  PASS precedence_div_sub assembly result
+  PASS precedence_div_sub compile
+  PASS precedence_div_sub binary bytes
+  PASS precedence_div_sub VM run
+  PASS precedence_div_sub AX=002A
+  PASS precedence_div_sub HLT
+  PASS parentheses_override -S
+  PASS parentheses_override assembly result
+  PASS parentheses_override compile
+  PASS parentheses_override binary bytes
+  PASS parentheses_override VM run
+  PASS parentheses_override AX=002A
+  PASS parentheses_override HLT
+  PASS mixed_nested -S
+  PASS mixed_nested assembly result
+  PASS mixed_nested compile
+  PASS mixed_nested binary bytes
+  PASS mixed_nested VM run
+  PASS mixed_nested AX=002A
+  PASS mixed_nested HLT
+  PASS precedence_distinct -S
+  PASS precedence_distinct assembly result
+  PASS precedence_distinct compile
+  PASS precedence_distinct binary bytes
+  PASS precedence_distinct VM run
+  PASS precedence_distinct AX=000E
+  PASS precedence_distinct HLT
+  PASS parentheses_distinct -S
+  PASS parentheses_distinct assembly result
+  PASS parentheses_distinct compile
+  PASS parentheses_distinct binary bytes
+  PASS parentheses_distinct VM run
+  PASS parentheses_distinct AX=0014
+  PASS parentheses_distinct HLT
+
+Phase 1C - Scalar Locals and Assignment
+------------------------------------------------------------------------
+  PASS local_decl_init -S
+  PASS local_decl_init stack-backed assembly
+  PASS local_decl_init local load/store
+  PASS local_decl_init compile
+  PASS local_decl_init binary produced
+  PASS local_decl_init VM run
+  PASS local_decl_init AX=002A
+  PASS local_decl_init HLT
+  PASS local_decl_assign -S
+  PASS local_decl_assign stack-backed assembly
+  PASS local_decl_assign local load/store
+  PASS local_decl_assign compile
+  PASS local_decl_assign binary produced
+  PASS local_decl_assign VM run
+  PASS local_decl_assign AX=002A
+  PASS local_decl_assign HLT
+  PASS local_reassign -S
+  PASS local_reassign stack-backed assembly
+  PASS local_reassign local load/store
+  PASS local_reassign compile
+  PASS local_reassign binary produced
+  PASS local_reassign VM run
+  PASS local_reassign AX=002A
+  PASS local_reassign HLT
+  PASS multiple_locals -S
+  PASS multiple_locals stack-backed assembly
+  PASS multiple_locals local load/store
+  PASS multiple_locals compile
+  PASS multiple_locals binary produced
+  PASS multiple_locals VM run
+  PASS multiple_locals AX=002A
+  PASS multiple_locals HLT
+  PASS local_add_constant -S
+  PASS local_add_constant stack-backed assembly
+  PASS local_add_constant local load/store
+  PASS local_add_constant compile
+  PASS local_add_constant binary produced
+  PASS local_add_constant VM run
+  PASS local_add_constant AX=002A
+  PASS local_add_constant HLT
+  PASS constant_add_local -S
+  PASS constant_add_local stack-backed assembly
+  PASS constant_add_local local load/store
+  PASS constant_add_local compile
+  PASS constant_add_local binary produced
+  PASS constant_add_local VM run
+  PASS constant_add_local AX=002A
+  PASS constant_add_local HLT
+  PASS local_sub_local -S
+  PASS local_sub_local stack-backed assembly
+  PASS local_sub_local local load/store
+  PASS local_sub_local compile
+  PASS local_sub_local binary produced
+  PASS local_sub_local VM run
+  PASS local_sub_local AX=002A
+  PASS local_sub_local HLT
+  PASS initializer_from_local -S
+  PASS initializer_from_local stack-backed assembly
+  PASS initializer_from_local local load/store
+  PASS initializer_from_local compile
+  PASS initializer_from_local binary produced
+  PASS initializer_from_local VM run
+  PASS initializer_from_local AX=002A
+  PASS initializer_from_local HLT
+  PASS initializer_expression -S
+  PASS initializer_expression stack-backed assembly
+  PASS initializer_expression local load/store
+  PASS initializer_expression compile
+  PASS initializer_expression binary produced
+  PASS initializer_expression VM run
+  PASS initializer_expression AX=002A
+  PASS initializer_expression HLT
+  PASS assignment_expression -S
+  PASS assignment_expression stack-backed assembly
+  PASS assignment_expression local load/store
+  PASS assignment_expression compile
+  PASS assignment_expression binary produced
+  PASS assignment_expression VM run
+  PASS assignment_expression AX=002A
+  PASS assignment_expression HLT
+  PASS local_parentheses -S
+  PASS local_parentheses stack-backed assembly
+  PASS local_parentheses local load/store
+  PASS local_parentheses compile
+  PASS local_parentheses binary produced
+  PASS local_parentheses VM run
+  PASS local_parentheses AX=002A
+  PASS local_parentheses HLT
+
+Phase 1D - Runtime Multiplicative Integration
+------------------------------------------------------------------------
+  PASS runtime_mul_locals -S
+  PASS runtime_mul_locals stack-backed assembly
+  PASS runtime_mul_locals local load/store
+  PASS runtime_mul_locals runtime multiplicative code
+  PASS runtime_mul_locals compile
+  PASS runtime_mul_locals binary produced
+  PASS runtime_mul_locals VM run
+  PASS runtime_mul_locals AX=002A
+  PASS runtime_mul_locals HLT
+  PASS runtime_div_locals -S
+  PASS runtime_div_locals stack-backed assembly
+  PASS runtime_div_locals local load/store
+  PASS runtime_div_locals runtime multiplicative code
+  PASS runtime_div_locals compile
+  PASS runtime_div_locals binary produced
+  PASS runtime_div_locals VM run
+  PASS runtime_div_locals AX=002A
+  PASS runtime_div_locals HLT
+  PASS runtime_rem_locals -S
+  PASS runtime_rem_locals stack-backed assembly
+  PASS runtime_rem_locals local load/store
+  PASS runtime_rem_locals runtime multiplicative code
+  PASS runtime_rem_locals compile
+  PASS runtime_rem_locals binary produced
+  PASS runtime_rem_locals VM run
+  PASS runtime_rem_locals AX=002A
+  PASS runtime_rem_locals HLT
+  PASS runtime_precedence -S
+  PASS runtime_precedence stack-backed assembly
+  PASS runtime_precedence local load/store
+  PASS runtime_precedence runtime multiplicative code
+  PASS runtime_precedence compile
+  PASS runtime_precedence binary produced
+  PASS runtime_precedence VM run
+  PASS runtime_precedence AX=000E
+  PASS runtime_precedence HLT
+  PASS runtime_parentheses -S
+  PASS runtime_parentheses stack-backed assembly
+  PASS runtime_parentheses local load/store
+  PASS runtime_parentheses runtime multiplicative code
+  PASS runtime_parentheses compile
+  PASS runtime_parentheses binary produced
+  PASS runtime_parentheses VM run
+  PASS runtime_parentheses AX=0014
+  PASS runtime_parentheses HLT
+  PASS runtime_mul_chain -S
+  PASS runtime_mul_chain stack-backed assembly
+  PASS runtime_mul_chain local load/store
+  PASS runtime_mul_chain runtime multiplicative code
+  PASS runtime_mul_chain compile
+  PASS runtime_mul_chain binary produced
+  PASS runtime_mul_chain VM run
+  PASS runtime_mul_chain AX=002A
+  PASS runtime_mul_chain HLT
+  PASS runtime_div_mul_chain -S
+  PASS runtime_div_mul_chain stack-backed assembly
+  PASS runtime_div_mul_chain local load/store
+  PASS runtime_div_mul_chain runtime multiplicative code
+  PASS runtime_div_mul_chain compile
+  PASS runtime_div_mul_chain binary produced
+  PASS runtime_div_mul_chain VM run
+  PASS runtime_div_mul_chain AX=002A
+  PASS runtime_div_mul_chain HLT
+  PASS runtime_mixed_nested -S
+  PASS runtime_mixed_nested stack-backed assembly
+  PASS runtime_mixed_nested local load/store
+  PASS runtime_mixed_nested runtime multiplicative code
+  PASS runtime_mixed_nested compile
+  PASS runtime_mixed_nested binary produced
+  PASS runtime_mixed_nested VM run
+  PASS runtime_mixed_nested AX=002A
+  PASS runtime_mixed_nested HLT
+
+Phase 2A - Equality and Relational Expressions
+------------------------------------------------------------------------
+  PASS eq_true -S
+  PASS eq_true assembly result
+  PASS eq_true compile
+  PASS eq_true binary bytes
+  PASS eq_true VM run
+  PASS eq_true AX=0001
+  PASS eq_true HLT
+  PASS eq_false -S
+  PASS eq_false assembly result
+  PASS eq_false compile
+  PASS eq_false binary bytes
+  PASS eq_false VM run
+  PASS eq_false AX=0000
+  PASS eq_false HLT
+  PASS ne_true -S
+  PASS ne_true assembly result
+  PASS ne_true compile
+  PASS ne_true binary bytes
+  PASS ne_true VM run
+  PASS ne_true AX=0001
+  PASS ne_true HLT
+  PASS ne_false -S
+  PASS ne_false assembly result
+  PASS ne_false compile
+  PASS ne_false binary bytes
+  PASS ne_false VM run
+  PASS ne_false AX=0000
+  PASS ne_false HLT
+  PASS lt_true -S
+  PASS lt_true assembly result
+  PASS lt_true compile
+  PASS lt_true binary bytes
+  PASS lt_true VM run
+  PASS lt_true AX=0001
+  PASS lt_true HLT
+  PASS lt_false -S
+  PASS lt_false assembly result
+  PASS lt_false compile
+  PASS lt_false binary bytes
+  PASS lt_false VM run
+  PASS lt_false AX=0000
+  PASS lt_false HLT
+  PASS le_equal -S
+  PASS le_equal assembly result
+  PASS le_equal compile
+  PASS le_equal binary bytes
+  PASS le_equal VM run
+  PASS le_equal AX=0001
+  PASS le_equal HLT
+  PASS gt_true -S
+  PASS gt_true assembly result
+  PASS gt_true compile
+  PASS gt_true binary bytes
+  PASS gt_true VM run
+  PASS gt_true AX=0001
+  PASS gt_true HLT
+  PASS ge_equal -S
+  PASS ge_equal assembly result
+  PASS ge_equal compile
+  PASS ge_equal binary bytes
+  PASS ge_equal VM run
+  PASS ge_equal AX=0001
+  PASS ge_equal HLT
+  PASS compare_add_precedence -S
+  PASS compare_add_precedence assembly result
+  PASS compare_add_precedence compile
+  PASS compare_add_precedence binary bytes
+  PASS compare_add_precedence VM run
+  PASS compare_add_precedence AX=0001
+  PASS compare_add_precedence HLT
+  PASS compare_mul_equality -S
+  PASS compare_mul_equality assembly result
+  PASS compare_mul_equality compile
+  PASS compare_mul_equality binary bytes
+  PASS compare_mul_equality VM run
+  PASS compare_mul_equality AX=0001
+  PASS compare_mul_equality HLT
+  PASS runtime_lt_locals -S
+  PASS runtime_lt_locals stack-backed assembly
+  PASS runtime_lt_locals local load/store
+  PASS runtime_lt_locals runtime comparison code
+  PASS runtime_lt_locals compile
+  PASS runtime_lt_locals binary produced
+  PASS runtime_lt_locals VM run
+  PASS runtime_lt_locals AX=0001
+  PASS runtime_lt_locals HLT
+  PASS runtime_eq_locals -S
+  PASS runtime_eq_locals stack-backed assembly
+  PASS runtime_eq_locals local load/store
+  PASS runtime_eq_locals runtime comparison code
+  PASS runtime_eq_locals compile
+  PASS runtime_eq_locals binary produced
+  PASS runtime_eq_locals VM run
+  PASS runtime_eq_locals AX=0001
+  PASS runtime_eq_locals HLT
+  PASS runtime_gt_false -S
+  PASS runtime_gt_false stack-backed assembly
+  PASS runtime_gt_false local load/store
+  PASS runtime_gt_false runtime comparison code
+  PASS runtime_gt_false compile
+  PASS runtime_gt_false binary produced
+  PASS runtime_gt_false VM run
+  PASS runtime_gt_false AX=0000
+  PASS runtime_gt_false HLT
+  PASS runtime_compare_precedence -S
+  PASS runtime_compare_precedence stack-backed assembly
+  PASS runtime_compare_precedence local load/store
+  PASS runtime_compare_precedence runtime comparison code
+  PASS runtime_compare_precedence compile
+  PASS runtime_compare_precedence binary produced
+  PASS runtime_compare_precedence VM run
+  PASS runtime_compare_precedence AX=0001
+  PASS runtime_compare_precedence HLT
+  PASS runtime_compare_mul_eq -S
+  PASS runtime_compare_mul_eq stack-backed assembly
+  PASS runtime_compare_mul_eq local load/store
+  PASS runtime_compare_mul_eq runtime comparison code
+  PASS runtime_compare_mul_eq compile
+  PASS runtime_compare_mul_eq binary produced
+  PASS runtime_compare_mul_eq VM run
+  PASS runtime_compare_mul_eq AX=0001
+  PASS runtime_compare_mul_eq HLT
+  PASS runtime_signed_lt -S
+  PASS runtime_signed_lt stack-backed assembly
+  PASS runtime_signed_lt local load/store
+  PASS runtime_signed_lt runtime comparison code
+  PASS runtime_signed_lt compile
+  PASS runtime_signed_lt binary produced
+  PASS runtime_signed_lt VM run
+  PASS runtime_signed_lt AX=0001
+  PASS runtime_signed_lt HLT
+
+Phase 2B - Compound Statements and if/else
+------------------------------------------------------------------------
+  PASS if_true -S
+  PASS if_true stack-backed assembly
+  PASS if_true local load/store
+  PASS if_true control-flow code
+  PASS if_true compile
+  PASS if_true binary produced
+  PASS if_true VM run
+  PASS if_true AX=002A
+  PASS if_true HLT
+  PASS if_false -S
+  PASS if_false stack-backed assembly
+  PASS if_false local load/store
+  PASS if_false control-flow code
+  PASS if_false compile
+  PASS if_false binary produced
+  PASS if_false VM run
+  PASS if_false AX=002A
+  PASS if_false HLT
+  PASS if_nonzero -S
+  PASS if_nonzero stack-backed assembly
+  PASS if_nonzero local load/store
+  PASS if_nonzero control-flow code
+  PASS if_nonzero compile
+  PASS if_nonzero binary produced
+  PASS if_nonzero VM run
+  PASS if_nonzero AX=002A
+  PASS if_nonzero HLT
+  PASS if_zero -S
+  PASS if_zero stack-backed assembly
+  PASS if_zero local load/store
+  PASS if_zero control-flow code
+  PASS if_zero compile
+  PASS if_zero binary produced
+  PASS if_zero VM run
+  PASS if_zero AX=002A
+  PASS if_zero HLT
+  PASS if_else_true -S
+  PASS if_else_true stack-backed assembly
+  PASS if_else_true local load/store
+  PASS if_else_true control-flow code
+  PASS if_else_true compile
+  PASS if_else_true binary produced
+  PASS if_else_true VM run
+  PASS if_else_true AX=002A
+  PASS if_else_true HLT
+  PASS if_else_false -S
+  PASS if_else_false stack-backed assembly
+  PASS if_else_false local load/store
+  PASS if_else_false control-flow code
+  PASS if_else_false compile
+  PASS if_else_false binary produced
+  PASS if_else_false VM run
+  PASS if_else_false AX=002A
+  PASS if_else_false HLT
+  PASS if_block -S
+  PASS if_block stack-backed assembly
+  PASS if_block local load/store
+  PASS if_block control-flow code
+  PASS if_block compile
+  PASS if_block binary produced
+  PASS if_block VM run
+  PASS if_block AX=002A
+  PASS if_block HLT
+  PASS if_else_blocks -S
+  PASS if_else_blocks stack-backed assembly
+  PASS if_else_blocks local load/store
+  PASS if_else_blocks control-flow code
+  PASS if_else_blocks compile
+  PASS if_else_blocks binary produced
+  PASS if_else_blocks VM run
+  PASS if_else_blocks AX=002A
+  PASS if_else_blocks HLT
+  PASS nested_if -S
+  PASS nested_if stack-backed assembly
+  PASS nested_if local load/store
+  PASS nested_if control-flow code
+  PASS nested_if compile
+  PASS nested_if binary produced
+  PASS nested_if VM run
+  PASS nested_if AX=002A
+  PASS nested_if HLT
+  PASS dangling_else -S
+  PASS dangling_else stack-backed assembly
+  PASS dangling_else local load/store
+  PASS dangling_else control-flow code
+  PASS dangling_else compile
+  PASS dangling_else binary produced
+  PASS dangling_else VM run
+  PASS dangling_else AX=002A
+  PASS dangling_else HLT
+
+Phase 2C - while, break, and continue
+------------------------------------------------------------------------
+  PASS while_count -S
+  PASS while_count stack-backed assembly
+  PASS while_count local load/store
+  PASS while_count loop control-flow code
+  PASS while_count compile
+  PASS while_count binary produced
+  PASS while_count VM run
+  PASS while_count AX=002A
+  PASS while_count HLT
+  PASS while_zero -S
+  PASS while_zero stack-backed assembly
+  PASS while_zero local load/store
+  PASS while_zero loop control-flow code
+  PASS while_zero compile
+  PASS while_zero binary produced
+  PASS while_zero VM run
+  PASS while_zero AX=002A
+  PASS while_zero HLT
+  PASS while_nonzero -S
+  PASS while_nonzero stack-backed assembly
+  PASS while_nonzero local load/store
+  PASS while_nonzero loop control-flow code
+  PASS while_nonzero compile
+  PASS while_nonzero binary produced
+  PASS while_nonzero VM run
+  PASS while_nonzero AX=002A
+  PASS while_nonzero HLT
+  PASS while_break -S
+  PASS while_break stack-backed assembly
+  PASS while_break local load/store
+  PASS while_break loop control-flow code
+  PASS while_break compile
+  PASS while_break binary produced
+  PASS while_break VM run
+  PASS while_break AX=002A
+  PASS while_break HLT
+  PASS while_continue -S
+  PASS while_continue stack-backed assembly
+  PASS while_continue local load/store
+  PASS while_continue loop control-flow code
+  PASS while_continue compile
+  PASS while_continue binary produced
+  PASS while_continue VM run
+  PASS while_continue AX=002A
+  PASS while_continue HLT
+  PASS nested_while_break -S
+  PASS nested_while_break stack-backed assembly
+  PASS nested_while_break local load/store
+  PASS nested_while_break loop control-flow code
+  PASS nested_while_break compile
+  PASS nested_while_break binary produced
+  PASS nested_while_break VM run
+  PASS nested_while_break AX=002A
+  PASS nested_while_break HLT
+  PASS nested_while_continue -S
+  PASS nested_while_continue stack-backed assembly
+  PASS nested_while_continue local load/store
+  PASS nested_while_continue loop control-flow code
+  PASS nested_while_continue compile
+  PASS nested_while_continue binary produced
+  PASS nested_while_continue VM run
+  PASS nested_while_continue AX=002A
+  PASS nested_while_continue HLT
+
+Phase 2D - for loops
+------------------------------------------------------------------------
+  PASS for_count -S
+  PASS for_count stack-backed assembly
+  PASS for_count local load/store
+  PASS for_count for control-flow code
+  PASS for_count compile
+  PASS for_count binary produced
+  PASS for_count VM run
+  PASS for_count AX=002A
+  PASS for_count HLT
+  PASS for_zero -S
+  PASS for_zero stack-backed assembly
+  PASS for_zero local load/store
+  PASS for_zero for control-flow code
+  PASS for_zero compile
+  PASS for_zero binary produced
+  PASS for_zero VM run
+  PASS for_zero AX=002A
+  PASS for_zero HLT
+  PASS for_break -S
+  PASS for_break stack-backed assembly
+  PASS for_break local load/store
+  PASS for_break for control-flow code
+  PASS for_break compile
+  PASS for_break binary produced
+  PASS for_break VM run
+  PASS for_break AX=002A
+  PASS for_break HLT
+  PASS for_continue -S
+  PASS for_continue stack-backed assembly
+  PASS for_continue local load/store
+  PASS for_continue for control-flow code
+  PASS for_continue compile
+  PASS for_continue binary produced
+  PASS for_continue VM run
+  PASS for_continue AX=002A
+  PASS for_continue HLT
+  PASS nested_for_break -S
+  PASS nested_for_break stack-backed assembly
+  PASS nested_for_break local load/store
+  PASS nested_for_break for control-flow code
+  PASS nested_for_break compile
+  PASS nested_for_break binary produced
+  PASS nested_for_break VM run
+  PASS nested_for_break AX=002A
+  PASS nested_for_break HLT
+  PASS nested_for_continue -S
+  PASS nested_for_continue stack-backed assembly
+  PASS nested_for_continue local load/store
+  PASS nested_for_continue for control-flow code
+  PASS nested_for_continue compile
+  PASS nested_for_continue binary produced
+  PASS nested_for_continue VM run
+  PASS nested_for_continue AX=002A
+  PASS nested_for_continue HLT
+  PASS mixed_for_while -S
+  PASS mixed_for_while stack-backed assembly
+  PASS mixed_for_while local load/store
+  PASS mixed_for_while for control-flow code
+  PASS mixed_for_while compile
+  PASS mixed_for_while binary produced
+  PASS mixed_for_while VM run
+  PASS mixed_for_while AX=002A
+  PASS mixed_for_while HLT
+
+Phase 2E - logical expressions and short-circuit evaluation
+------------------------------------------------------------------------
+  PASS logical_not -S
+  PASS logical_not stack-backed assembly
+  PASS logical_not local load/store
+  PASS logical_not logical code
+  PASS logical_not compile
+  PASS logical_not binary produced
+  PASS logical_not VM run
+  PASS logical_not AX=002A
+  PASS logical_not HLT
+  PASS logical_double_not -S
+  PASS logical_double_not stack-backed assembly
+  PASS logical_double_not local load/store
+  PASS logical_double_not logical code
+  PASS logical_double_not compile
+  PASS logical_double_not binary produced
+  PASS logical_double_not VM run
+  PASS logical_double_not AX=002A
+  PASS logical_double_not HLT
+  PASS logical_and_true -S
+  PASS logical_and_true stack-backed assembly
+  PASS logical_and_true local load/store
+  PASS logical_and_true logical code
+  PASS logical_and_true compile
+  PASS logical_and_true binary produced
+  PASS logical_and_true VM run
+  PASS logical_and_true AX=002A
+  PASS logical_and_true HLT
+  PASS logical_and_false -S
+  PASS logical_and_false stack-backed assembly
+  PASS logical_and_false local load/store
+  PASS logical_and_false logical code
+  PASS logical_and_false compile
+  PASS logical_and_false binary produced
+  PASS logical_and_false VM run
+  PASS logical_and_false AX=002A
+  PASS logical_and_false HLT
+  PASS logical_or_true -S
+  PASS logical_or_true stack-backed assembly
+  PASS logical_or_true local load/store
+  PASS logical_or_true logical code
+  PASS logical_or_true compile
+  PASS logical_or_true binary produced
+  PASS logical_or_true VM run
+  PASS logical_or_true AX=002A
+  PASS logical_or_true HLT
+  PASS logical_or_false -S
+  PASS logical_or_false stack-backed assembly
+  PASS logical_or_false local load/store
+  PASS logical_or_false logical code
+  PASS logical_or_false compile
+  PASS logical_or_false binary produced
+  PASS logical_or_false VM run
+  PASS logical_or_false AX=002A
+  PASS logical_or_false HLT
+  PASS logical_precedence -S
+  PASS logical_precedence stack-backed assembly
+  PASS logical_precedence local load/store
+  PASS logical_precedence logical code
+  PASS logical_precedence compile
+  PASS logical_precedence binary produced
+  PASS logical_precedence VM run
+  PASS logical_precedence AX=002A
+  PASS logical_precedence HLT
+  PASS short_circuit_and -S
+  PASS short_circuit_and stack-backed assembly
+  PASS short_circuit_and local load/store
+  PASS short_circuit_and logical code
+  PASS short_circuit_and compile
+  PASS short_circuit_and binary produced
+  PASS short_circuit_and VM run
+  PASS short_circuit_and AX=002A
+  PASS short_circuit_and HLT
+  PASS short_circuit_or -S
+  PASS short_circuit_or stack-backed assembly
+  PASS short_circuit_or local load/store
+  PASS short_circuit_or logical code
+  PASS short_circuit_or compile
+  PASS short_circuit_or binary produced
+  PASS short_circuit_or VM run
+  PASS short_circuit_or AX=002A
+  PASS short_circuit_or HLT
+  PASS logical_loop -S
+  PASS logical_loop stack-backed assembly
+  PASS logical_loop local load/store
+  PASS logical_loop logical code
+  PASS logical_loop compile
+  PASS logical_loop binary produced
+  PASS logical_loop VM run
+  PASS logical_loop AX=002A
+  PASS logical_loop HLT
+
+Phase 2F - lexical block scope and shadowing
+------------------------------------------------------------------------
+  PASS block_shadow -S
+  PASS block_shadow stack-backed assembly
+  PASS block_shadow local load/store
+  PASS block_shadow compile
+  PASS block_shadow binary produced
+  PASS block_shadow VM run
+  PASS block_shadow AX=002A
+  PASS block_shadow HLT
+  PASS nested_shadow -S
+  PASS nested_shadow stack-backed assembly
+  PASS nested_shadow local load/store
+  PASS nested_shadow compile
+  PASS nested_shadow binary produced
+  PASS nested_shadow VM run
+  PASS nested_shadow AX=002A
+  PASS nested_shadow HLT
+  PASS sibling_scope -S
+  PASS sibling_scope stack-backed assembly
+  PASS sibling_scope local load/store
+  PASS sibling_scope compile
+  PASS sibling_scope binary produced
+  PASS sibling_scope VM run
+  PASS sibling_scope AX=002A
+  PASS sibling_scope HLT
+  PASS outer_visible -S
+  PASS outer_visible stack-backed assembly
+  PASS outer_visible local load/store
+  PASS outer_visible compile
+  PASS outer_visible binary produced
+  PASS outer_visible VM run
+  PASS outer_visible AX=002A
+  PASS outer_visible HLT
+  PASS for_decl_scope -S
+  PASS for_decl_scope stack-backed assembly
+  PASS for_decl_scope local load/store
+  PASS for_decl_scope compile
+  PASS for_decl_scope binary produced
+  PASS for_decl_scope VM run
+  PASS for_decl_scope AX=002A
+  PASS for_decl_scope HLT
+  PASS for_shadow_outer -S
+  PASS for_shadow_outer stack-backed assembly
+  PASS for_shadow_outer local load/store
+  PASS for_shadow_outer compile
+  PASS for_shadow_outer binary produced
+  PASS for_shadow_outer VM run
+  PASS for_shadow_outer AX=002A
+  PASS for_shadow_outer HLT
+
+Phase 3A - zero-argument functions and calls
+------------------------------------------------------------------------
+  PASS function_call -S
+  PASS function_call stack-backed assembly
+  PASS function_call function call code
+  PASS function_call compile
+  PASS function_call binary produced
+  PASS function_call VM run
+  PASS function_call AX=002A
+  PASS function_call HLT
+  PASS function_forward -S
+  PASS function_forward stack-backed assembly
+  PASS function_forward function call code
+  PASS function_forward compile
+  PASS function_forward binary produced
+  PASS function_forward VM run
+  PASS function_forward AX=002A
+  PASS function_forward HLT
+  PASS function_chain -S
+  PASS function_chain stack-backed assembly
+  PASS function_chain function call code
+  PASS function_chain compile
+  PASS function_chain binary produced
+  PASS function_chain VM run
+  PASS function_chain AX=002A
+  PASS function_chain HLT
+  PASS function_locals -S
+  PASS function_locals stack-backed assembly
+  PASS function_locals function call code
+  PASS function_locals compile
+  PASS function_locals binary produced
+  PASS function_locals VM run
+  PASS function_locals AX=002A
+  PASS function_locals HLT
+
+Phase 3B - function parameters and arguments
+------------------------------------------------------------------------
+  PASS function_params -S
+  PASS function_params stack-backed assembly
+  PASS function_params function call code
+  PASS function_params parameter/argument code
+  PASS function_params compile
+  PASS function_params binary produced
+  PASS function_params VM run
+  PASS function_params AX=002A
+  PASS function_params HLT
+  PASS function_arg_expr -S
+  PASS function_arg_expr stack-backed assembly
+  PASS function_arg_expr function call code
+  PASS function_arg_expr parameter/argument code
+  PASS function_arg_expr compile
+  PASS function_arg_expr binary produced
+  PASS function_arg_expr VM run
+  PASS function_arg_expr AX=002A
+  PASS function_arg_expr HLT
+  PASS function_arg_locals -S
+  PASS function_arg_locals stack-backed assembly
+  PASS function_arg_locals function call code
+  PASS function_arg_locals parameter/argument code
+  PASS function_arg_locals compile
+  PASS function_arg_locals binary produced
+  PASS function_arg_locals VM run
+  PASS function_arg_locals AX=002A
+  PASS function_arg_locals HLT
+  PASS function_params_locals -S
+  PASS function_params_locals stack-backed assembly
+  PASS function_params_locals function call code
+  PASS function_params_locals parameter/argument code
+  PASS function_params_locals compile
+  PASS function_params_locals binary produced
+  PASS function_params_locals VM run
+  PASS function_params_locals AX=002A
+  PASS function_params_locals HLT
+  PASS function_nested_calls -S
+  PASS function_nested_calls stack-backed assembly
+  PASS function_nested_calls function call code
+  PASS function_nested_calls parameter/argument code
+  PASS function_nested_calls compile
+  PASS function_nested_calls binary produced
+  PASS function_nested_calls VM run
+  PASS function_nested_calls AX=002A
+  PASS function_nested_calls HLT
+  PASS function_three_args -S
+  PASS function_three_args stack-backed assembly
+  PASS function_three_args function call code
+  PASS function_three_args parameter/argument code
+  PASS function_three_args compile
+  PASS function_three_args binary produced
+  PASS function_three_args VM run
+  PASS function_three_args AX=002A
+  PASS function_three_args HLT
+
+Phase 3C - recursion and recursive frame composition
+------------------------------------------------------------------------
+  PASS recursive_sum -S
+  PASS recursive_sum stack-backed assembly
+  PASS recursive_sum function call code
+  PASS recursive_sum parameter/argument code
+  PASS recursive_sum recursive call code
+  PASS recursive_sum compile
+  PASS recursive_sum binary produced
+  PASS recursive_sum VM run
+  PASS recursive_sum AX=002A
+  PASS recursive_sum HLT
+  PASS recursive_locals -S
+  PASS recursive_locals stack-backed assembly
+  PASS recursive_locals function call code
+  PASS recursive_locals parameter/argument code
+  PASS recursive_locals recursive call code
+  PASS recursive_locals compile
+  PASS recursive_locals binary produced
+  PASS recursive_locals VM run
+  PASS recursive_locals AX=002A
+  PASS recursive_locals HLT
+  PASS recursive_depth -S
+  PASS recursive_depth stack-backed assembly
+  PASS recursive_depth function call code
+  PASS recursive_depth parameter/argument code
+  PASS recursive_depth recursive call code
+  PASS recursive_depth compile
+  PASS recursive_depth binary produced
+  PASS recursive_depth VM run
+  PASS recursive_depth AX=002A
+  PASS recursive_depth HLT
+  PASS mutual_recursion -S
+  PASS mutual_recursion stack-backed assembly
+  PASS mutual_recursion function call code
+  PASS mutual_recursion parameter/argument code
+  PASS mutual_recursion recursive call code
+  PASS mutual_recursion compile
+  PASS mutual_recursion binary produced
+  PASS mutual_recursion VM run
+  PASS mutual_recursion AX=002A
+  PASS mutual_recursion HLT
+
+Phase 3D - function prototypes and signature validation
+------------------------------------------------------------------------
+  PASS function_prototype -S
+  PASS function_prototype stack-backed assembly
+  PASS function_prototype function call code
+  PASS function_prototype parameter/argument code
+  PASS function_prototype compile
+  PASS function_prototype binary produced
+  PASS function_prototype VM run
+  PASS function_prototype AX=002A
+  PASS function_prototype HLT
+  PASS function_unnamed_prototype -S
+  PASS function_unnamed_prototype stack-backed assembly
+  PASS function_unnamed_prototype function call code
+  PASS function_unnamed_prototype parameter/argument code
+  PASS function_unnamed_prototype compile
+  PASS function_unnamed_prototype binary produced
+  PASS function_unnamed_prototype VM run
+  PASS function_unnamed_prototype AX=002A
+  PASS function_unnamed_prototype HLT
+  PASS function_repeated_prototype -S
+  PASS function_repeated_prototype stack-backed assembly
+  PASS function_repeated_prototype function call code
+  PASS function_repeated_prototype parameter/argument code
+  PASS function_repeated_prototype compile
+  PASS function_repeated_prototype binary produced
+  PASS function_repeated_prototype VM run
+  PASS function_repeated_prototype AX=002A
+  PASS function_repeated_prototype HLT
+  PASS function_prototype_recursion -S
+  PASS function_prototype_recursion stack-backed assembly
+  PASS function_prototype_recursion function call code
+  PASS function_prototype_recursion parameter/argument code
+  PASS function_prototype_recursion compile
+  PASS function_prototype_recursion binary produced
+  PASS function_prototype_recursion VM run
+  PASS function_prototype_recursion AX=002A
+  PASS function_prototype_recursion HLT
+
+Phase 4A - pointers, address-of, and dereference
+------------------------------------------------------------------------
+  PASS pointer_read -S
+  PASS pointer_read stack-backed assembly
+  PASS pointer_read pointer/lvalue code
+  PASS pointer_read compile
+  PASS pointer_read binary produced
+  PASS pointer_read VM run
+  PASS pointer_read AX=002A
+  PASS pointer_read HLT
+  PASS pointer_write -S
+  PASS pointer_write stack-backed assembly
+  PASS pointer_write pointer/lvalue code
+  PASS pointer_write indirect store
+  PASS pointer_write compile
+  PASS pointer_write binary produced
+  PASS pointer_write VM run
+  PASS pointer_write AX=002A
+  PASS pointer_write HLT
+  PASS pointer_retarget -S
+  PASS pointer_retarget stack-backed assembly
+  PASS pointer_retarget pointer/lvalue code
+  PASS pointer_retarget compile
+  PASS pointer_retarget binary produced
+  PASS pointer_retarget VM run
+  PASS pointer_retarget AX=002A
+  PASS pointer_retarget HLT
+  PASS pointer_expression -S
+  PASS pointer_expression stack-backed assembly
+  PASS pointer_expression pointer/lvalue code
+  PASS pointer_expression compile
+  PASS pointer_expression binary produced
+  PASS pointer_expression VM run
+  PASS pointer_expression AX=002A
+  PASS pointer_expression HLT
+
+Phase 4B - explicit lvalues and rvalues
+------------------------------------------------------------------------
+  PASS lvalue_deref_address -S
+  PASS lvalue_deref_address stack-backed assembly
+  PASS lvalue_deref_address pointer/lvalue code
+  PASS lvalue_deref_address compile
+  PASS lvalue_deref_address binary produced
+  PASS lvalue_deref_address VM run
+  PASS lvalue_deref_address AX=002A
+  PASS lvalue_deref_address HLT
+  PASS lvalue_address_deref -S
+  PASS lvalue_address_deref stack-backed assembly
+  PASS lvalue_address_deref pointer/lvalue code
+  PASS lvalue_address_deref compile
+  PASS lvalue_address_deref binary produced
+  PASS lvalue_address_deref VM run
+  PASS lvalue_address_deref AX=002A
+  PASS lvalue_address_deref HLT
+  PASS lvalue_composed_store -S
+  PASS lvalue_composed_store stack-backed assembly
+  PASS lvalue_composed_store pointer/lvalue code
+  PASS lvalue_composed_store indirect store
+  PASS lvalue_composed_store compile
+  PASS lvalue_composed_store binary produced
+  PASS lvalue_composed_store VM run
+  PASS lvalue_composed_store AX=002A
+  PASS lvalue_composed_store HLT
+  PASS lvalue_pointer_copy -S
+  PASS lvalue_pointer_copy stack-backed assembly
+  PASS lvalue_pointer_copy pointer/lvalue code
+  PASS lvalue_pointer_copy indirect store
+  PASS lvalue_pointer_copy compile
+  PASS lvalue_pointer_copy binary produced
+  PASS lvalue_pointer_copy VM run
+  PASS lvalue_pointer_copy AX=002A
+  PASS lvalue_pointer_copy HLT
+
+Phase 4C - pointer parameters across function boundaries
+------------------------------------------------------------------------
+  PASS pointer_param_read -S
+  PASS pointer_param_read stack-backed assembly
+  PASS pointer_param_read function call code
+  PASS pointer_param_read parameter/argument code
+  PASS pointer_param_read pointer parameter code
+  PASS pointer_param_read compile
+  PASS pointer_param_read binary produced
+  PASS pointer_param_read VM run
+  PASS pointer_param_read AX=002A
+  PASS pointer_param_read HLT
+  PASS pointer_param_write -S
+  PASS pointer_param_write stack-backed assembly
+  PASS pointer_param_write function call code
+  PASS pointer_param_write parameter/argument code
+  PASS pointer_param_write pointer parameter code
+  PASS pointer_param_write compile
+  PASS pointer_param_write binary produced
+  PASS pointer_param_write VM run
+  PASS pointer_param_write AX=002A
+  PASS pointer_param_write HLT
+  PASS pointer_param_copy -S
+  PASS pointer_param_copy stack-backed assembly
+  PASS pointer_param_copy function call code
+  PASS pointer_param_copy parameter/argument code
+  PASS pointer_param_copy pointer parameter code
+  PASS pointer_param_copy compile
+  PASS pointer_param_copy binary produced
+  PASS pointer_param_copy VM run
+  PASS pointer_param_copy AX=002A
+  PASS pointer_param_copy HLT
+  PASS pointer_param_recursive -S
+  PASS pointer_param_recursive stack-backed assembly
+  PASS pointer_param_recursive function call code
+  PASS pointer_param_recursive parameter/argument code
+  PASS pointer_param_recursive pointer parameter code
+  PASS pointer_param_recursive compile
+  PASS pointer_param_recursive binary produced
+  PASS pointer_param_recursive VM run
+  PASS pointer_param_recursive AX=002A
+  PASS pointer_param_recursive HLT
+  PASS pointer_param_prototype -S
+  PASS pointer_param_prototype stack-backed assembly
+  PASS pointer_param_prototype function call code
+  PASS pointer_param_prototype parameter/argument code
+  PASS pointer_param_prototype pointer parameter code
+  PASS pointer_param_prototype compile
+  PASS pointer_param_prototype binary produced
+  PASS pointer_param_prototype VM run
+  PASS pointer_param_prototype AX=002A
+  PASS pointer_param_prototype HLT
+
+Phase 4D - int arrays and indexed lvalues
+------------------------------------------------------------------------
+  PASS array_read -S
+  PASS array_read stack-backed assembly
+  PASS array_read array/index code
+  PASS array_read compile
+  PASS array_read binary produced
+  PASS array_read VM run
+  PASS array_read AX=002A
+  PASS array_read HLT
+  PASS array_variable_index -S
+  PASS array_variable_index stack-backed assembly
+  PASS array_variable_index array/index code
+  PASS array_variable_index compile
+  PASS array_variable_index binary produced
+  PASS array_variable_index VM run
+  PASS array_variable_index AX=002A
+  PASS array_variable_index HLT
+  PASS array_expression -S
+  PASS array_expression stack-backed assembly
+  PASS array_expression array/index code
+  PASS array_expression compile
+  PASS array_expression binary produced
+  PASS array_expression VM run
+  PASS array_expression AX=002A
+  PASS array_expression HLT
+  PASS array_pass_pointer -S
+  PASS array_pass_pointer stack-backed assembly
+  PASS array_pass_pointer array/index code
+  PASS array_pass_pointer array decay/call code
+  PASS array_pass_pointer compile
+  PASS array_pass_pointer binary produced
+  PASS array_pass_pointer VM run
+  PASS array_pass_pointer AX=002A
+  PASS array_pass_pointer HLT
+  PASS array_loop -S
+  PASS array_loop stack-backed assembly
+  PASS array_loop array/index code
+  PASS array_loop compile
+  PASS array_loop binary produced
+  PASS array_loop VM run
+  PASS array_loop AX=002A
+  PASS array_loop HLT
+
+Phase 4E - scaled int pointer arithmetic
+------------------------------------------------------------------------
+  PASS pointer_add -S
+  PASS pointer_add stack-backed assembly
+  PASS pointer_add scaled pointer arithmetic code
+  PASS pointer_add compile
+  PASS pointer_add binary produced
+  PASS pointer_add VM run
+  PASS pointer_add AX=002A
+  PASS pointer_add HLT
+  PASS pointer_sub -S
+  PASS pointer_sub stack-backed assembly
+  PASS pointer_sub scaled pointer arithmetic code
+  PASS pointer_sub compile
+  PASS pointer_sub binary produced
+  PASS pointer_sub VM run
+  PASS pointer_sub AX=002A
+  PASS pointer_sub HLT
+  PASS pointer_deref_arithmetic -S
+  PASS pointer_deref_arithmetic stack-backed assembly
+  PASS pointer_deref_arithmetic scaled pointer arithmetic code
+  PASS pointer_deref_arithmetic compile
+  PASS pointer_deref_arithmetic binary produced
+  PASS pointer_deref_arithmetic VM run
+  PASS pointer_deref_arithmetic AX=002A
+  PASS pointer_deref_arithmetic HLT
+  PASS pointer_symmetric_add -S
+  PASS pointer_symmetric_add stack-backed assembly
+  PASS pointer_symmetric_add scaled pointer arithmetic code
+  PASS pointer_symmetric_add compile
+  PASS pointer_symmetric_add binary produced
+  PASS pointer_symmetric_add VM run
+  PASS pointer_symmetric_add AX=002A
+  PASS pointer_symmetric_add HLT
+  PASS pointer_runtime_offset -S
+  PASS pointer_runtime_offset stack-backed assembly
+  PASS pointer_runtime_offset scaled pointer arithmetic code
+  PASS pointer_runtime_offset compile
+  PASS pointer_runtime_offset binary produced
+  PASS pointer_runtime_offset VM run
+  PASS pointer_runtime_offset AX=002A
+  PASS pointer_runtime_offset HLT
+
+Phase 4F - char objects, pointers, and byte arrays
+------------------------------------------------------------------------
+  PASS char_scalar -S
+  PASS char_scalar stack-backed assembly
+  PASS char_scalar byte object code
+  PASS char_scalar compile
+  PASS char_scalar binary produced
+  PASS char_scalar VM run
+  PASS char_scalar AX=002A
+  PASS char_scalar HLT
+  PASS char_array -S
+  PASS char_array stack-backed assembly
+  PASS char_array byte object code
+  PASS char_array compile
+  PASS char_array binary produced
+  PASS char_array VM run
+  PASS char_array AX=002A
+  PASS char_array HLT
+  PASS char_pointer -S
+  PASS char_pointer stack-backed assembly
+  PASS char_pointer byte object code
+  PASS char_pointer compile
+  PASS char_pointer binary produced
+  PASS char_pointer VM run
+  PASS char_pointer AX=002A
+  PASS char_pointer HLT
+  PASS char_param -S
+  PASS char_param stack-backed assembly
+  PASS char_param byte object code
+  PASS char_param compile
+  PASS char_param binary produced
+  PASS char_param VM run
+  PASS char_param AX=002A
+  PASS char_param HLT
+  PASS char_walk -S
+  PASS char_walk stack-backed assembly
+  PASS char_walk byte object code
+  PASS char_walk compile
+  PASS char_walk binary produced
+  PASS char_walk VM run
+  PASS char_walk AX=002A
+  PASS char_walk HLT
+
+Phase 4G - string literals and static data
+------------------------------------------------------------------------
+  PASS string_pointer -S
+  PASS string_pointer stack-backed assembly
+  PASS string_pointer string/static-data code
+  PASS string_pointer compile
+  PASS string_pointer binary produced
+  PASS string_pointer VM run
+  PASS string_pointer AX=002A
+  PASS string_pointer HLT
+  PASS string_index -S
+  PASS string_index stack-backed assembly
+  PASS string_index string/static-data code
+  PASS string_index compile
+  PASS string_index binary produced
+  PASS string_index VM run
+  PASS string_index AX=002A
+  PASS string_index HLT
+  PASS string_param -S
+  PASS string_param stack-backed assembly
+  PASS string_param string/static-data code
+  PASS string_param string call code
+  PASS string_param compile
+  PASS string_param binary produced
+  PASS string_param VM run
+  PASS string_param AX=002A
+  PASS string_param HLT
+  PASS string_strlen -S
+  PASS string_strlen stack-backed assembly
+  PASS string_strlen string/static-data code
+  PASS string_strlen string call code
+  PASS string_strlen long literal chunking
+  PASS string_strlen compile
+  PASS string_strlen binary produced
+  PASS string_strlen VM run
+  PASS string_strlen AX=002A
+  PASS string_strlen HLT
+  PASS string_multiple -S
+  PASS string_multiple stack-backed assembly
+  PASS string_multiple string/static-data code
+  PASS string_multiple string call code
+  PASS string_multiple compile
+  PASS string_multiple binary produced
+  PASS string_multiple VM run
+  PASS string_multiple AX=002A
+  PASS string_multiple HLT
+
+Phase 4H - generalized pointer subscripting
+------------------------------------------------------------------------
+  PASS pointer_subscript_read -S
+  PASS pointer_subscript_read stack-backed assembly
+  PASS pointer_subscript_read pointer subscript code
+  PASS pointer_subscript_read pointer subscript call code
+  PASS pointer_subscript_read int index scaling
+  PASS pointer_subscript_read compile
+  PASS pointer_subscript_read binary produced
+  PASS pointer_subscript_read VM run
+  PASS pointer_subscript_read AX=002A
+  PASS pointer_subscript_read HLT
+  PASS pointer_subscript_store -S
+  PASS pointer_subscript_store stack-backed assembly
+  PASS pointer_subscript_store pointer subscript code
+  PASS pointer_subscript_store pointer subscript call code
+  PASS pointer_subscript_store int index scaling
+  PASS pointer_subscript_store compile
+  PASS pointer_subscript_store binary produced
+  PASS pointer_subscript_store VM run
+  PASS pointer_subscript_store AX=002A
+  PASS pointer_subscript_store HLT
+  PASS char_pointer_subscript -S
+  PASS char_pointer_subscript stack-backed assembly
+  PASS char_pointer_subscript pointer subscript code
+  PASS char_pointer_subscript compile
+  PASS char_pointer_subscript binary produced
+  PASS char_pointer_subscript VM run
+  PASS char_pointer_subscript AX=002A
+  PASS char_pointer_subscript HLT
+  PASS pointer_subscript_runtime -S
+  PASS pointer_subscript_runtime stack-backed assembly
+  PASS pointer_subscript_runtime pointer subscript code
+  PASS pointer_subscript_runtime int index scaling
+  PASS pointer_subscript_runtime compile
+  PASS pointer_subscript_runtime binary produced
+  PASS pointer_subscript_runtime VM run
+  PASS pointer_subscript_runtime AX=002A
+  PASS pointer_subscript_runtime HLT
+  PASS pointer_subscript_equivalence -S
+  PASS pointer_subscript_equivalence stack-backed assembly
+  PASS pointer_subscript_equivalence pointer subscript code
+  PASS pointer_subscript_equivalence int index scaling
+  PASS pointer_subscript_equivalence compile
+  PASS pointer_subscript_equivalence binary produced
+  PASS pointer_subscript_equivalence VM run
+  PASS pointer_subscript_equivalence AX=002A
+  PASS pointer_subscript_equivalence HLT
+
+Phase 4I - pointer depth and double pointers
+------------------------------------------------------------------------
+  PASS pointer_depth_int -S
+  PASS pointer_depth_int stack-backed assembly
+  PASS pointer_depth_int double-pointer code
+  PASS pointer_depth_int compile
+  PASS pointer_depth_int binary produced
+  PASS pointer_depth_int VM run
+  PASS pointer_depth_int AX=002A
+  PASS pointer_depth_int HLT
+  PASS pointer_depth_store -S
+  PASS pointer_depth_store stack-backed assembly
+  PASS pointer_depth_store double-pointer code
+  PASS pointer_depth_store double-deref store
+  PASS pointer_depth_store compile
+  PASS pointer_depth_store binary produced
+  PASS pointer_depth_store VM run
+  PASS pointer_depth_store AX=002A
+  PASS pointer_depth_store HLT
+  PASS pointer_depth_param -S
+  PASS pointer_depth_param stack-backed assembly
+  PASS pointer_depth_param double-pointer code
+  PASS pointer_depth_param double-pointer call code
+  PASS pointer_depth_param compile
+  PASS pointer_depth_param binary produced
+  PASS pointer_depth_param VM run
+  PASS pointer_depth_param AX=002A
+  PASS pointer_depth_param HLT
+  PASS pointer_depth_char -S
+  PASS pointer_depth_char stack-backed assembly
+  PASS pointer_depth_char double-pointer code
+  PASS pointer_depth_char char double-deref code
+  PASS pointer_depth_char compile
+  PASS pointer_depth_char binary produced
+  PASS pointer_depth_char VM run
+  PASS pointer_depth_char AX=002A
+  PASS pointer_depth_char HLT
+  PASS pointer_depth_subscript -S
+  PASS pointer_depth_subscript stack-backed assembly
+  PASS pointer_depth_subscript double-pointer code
+  PASS pointer_depth_subscript pointer-sized index scaling
+  PASS pointer_depth_subscript compile
+  PASS pointer_depth_subscript binary produced
+  PASS pointer_depth_subscript VM run
+  PASS pointer_depth_subscript AX=002A
+  PASS pointer_depth_subscript HLT
+
+Phase 4J - arrays of pointers
+------------------------------------------------------------------------
+  PASS pointer_array_int -S
+  PASS pointer_array_int stack-backed assembly
+  PASS pointer_array_int pointer-array code
+  PASS pointer_array_int compile
+  PASS pointer_array_int binary produced
+  PASS pointer_array_int VM run
+  PASS pointer_array_int AX=002A
+  PASS pointer_array_int HLT
+  PASS pointer_array_char -S
+  PASS pointer_array_char stack-backed assembly
+  PASS pointer_array_char pointer-array code
+  PASS pointer_array_char string pointer elements
+  PASS pointer_array_char compile
+  PASS pointer_array_char binary produced
+  PASS pointer_array_char VM run
+  PASS pointer_array_char AX=002A
+  PASS pointer_array_char HLT
+  PASS pointer_array_decay -S
+  PASS pointer_array_decay stack-backed assembly
+  PASS pointer_array_decay pointer-array code
+  PASS pointer_array_decay array decay/call code
+  PASS pointer_array_decay compile
+  PASS pointer_array_decay binary produced
+  PASS pointer_array_decay VM run
+  PASS pointer_array_decay AX=002A
+  PASS pointer_array_decay HLT
+  PASS pointer_array_runtime -S
+  PASS pointer_array_runtime stack-backed assembly
+  PASS pointer_array_runtime pointer-array code
+  PASS pointer_array_runtime array decay/call code
+  PASS pointer_array_runtime compile
+  PASS pointer_array_runtime binary produced
+  PASS pointer_array_runtime VM run
+  PASS pointer_array_runtime AX=002A
+  PASS pointer_array_runtime HLT
+  PASS pointer_array_store -S
+  PASS pointer_array_store stack-backed assembly
+  PASS pointer_array_store pointer-array code
+  PASS pointer_array_store compile
+  PASS pointer_array_store binary produced
+  PASS pointer_array_store VM run
+  PASS pointer_array_store AX=002A
+  PASS pointer_array_store HLT
+
+Phase 5A - struct objects and dot-member access
+------------------------------------------------------------------------
+  PASS struct_basic -S
+  PASS struct_basic stack-backed assembly
+  PASS struct_basic struct/member code
+  PASS struct_basic member offset code
+  PASS struct_basic compile
+  PASS struct_basic binary produced
+  PASS struct_basic VM run
+  PASS struct_basic AX=002A
+  PASS struct_basic HLT
+  PASS struct_member_expression -S
+  PASS struct_member_expression stack-backed assembly
+  PASS struct_member_expression struct/member code
+  PASS struct_member_expression member offset code
+  PASS struct_member_expression compile
+  PASS struct_member_expression binary produced
+  PASS struct_member_expression VM run
+  PASS struct_member_expression AX=002A
+  PASS struct_member_expression HLT
+  PASS struct_two_objects -S
+  PASS struct_two_objects stack-backed assembly
+  PASS struct_two_objects struct/member code
+  PASS struct_two_objects member offset code
+  PASS struct_two_objects compile
+  PASS struct_two_objects binary produced
+  PASS struct_two_objects VM run
+  PASS struct_two_objects AX=002A
+  PASS struct_two_objects HLT
+  PASS struct_member_assignment -S
+  PASS struct_member_assignment stack-backed assembly
+  PASS struct_member_assignment struct/member code
+  PASS struct_member_assignment member offset code
+  PASS struct_member_assignment compile
+  PASS struct_member_assignment binary produced
+  PASS struct_member_assignment VM run
+  PASS struct_member_assignment AX=002A
+  PASS struct_member_assignment HLT
+  PASS struct_function_local -S
+  PASS struct_function_local stack-backed assembly
+  PASS struct_function_local struct/member code
+  PASS struct_function_local member offset code
+  PASS struct_function_local function integration
+  PASS struct_function_local compile
+  PASS struct_function_local binary produced
+  PASS struct_function_local VM run
+  PASS struct_function_local AX=002A
+  PASS struct_function_local HLT
+
+Phase 5B - struct pointers and arrow-member access
+------------------------------------------------------------------------
+  PASS struct_pointer_read -S
+  PASS struct_pointer_read stack-backed assembly
+  PASS struct_pointer_read struct-pointer/arrow code
+  PASS struct_pointer_read arrow member offset code
+  PASS struct_pointer_read compile
+  PASS struct_pointer_read binary produced
+  PASS struct_pointer_read VM run
+  PASS struct_pointer_read AX=002A
+  PASS struct_pointer_read HLT
+  PASS struct_pointer_write -S
+  PASS struct_pointer_write stack-backed assembly
+  PASS struct_pointer_write struct-pointer/arrow code
+  PASS struct_pointer_write arrow member offset code
+  PASS struct_pointer_write compile
+  PASS struct_pointer_write binary produced
+  PASS struct_pointer_write VM run
+  PASS struct_pointer_write AX=002A
+  PASS struct_pointer_write HLT
+  PASS struct_pointer_retarget -S
+  PASS struct_pointer_retarget stack-backed assembly
+  PASS struct_pointer_retarget struct-pointer/arrow code
+  PASS struct_pointer_retarget arrow member offset code
+  PASS struct_pointer_retarget compile
+  PASS struct_pointer_retarget binary produced
+  PASS struct_pointer_retarget VM run
+  PASS struct_pointer_retarget AX=002A
+  PASS struct_pointer_retarget HLT
+  PASS struct_pointer_copy -S
+  PASS struct_pointer_copy stack-backed assembly
+  PASS struct_pointer_copy struct-pointer/arrow code
+  PASS struct_pointer_copy arrow member offset code
+  PASS struct_pointer_copy compile
+  PASS struct_pointer_copy binary produced
+  PASS struct_pointer_copy VM run
+  PASS struct_pointer_copy AX=002A
+  PASS struct_pointer_copy HLT
+  PASS struct_pointer_expression -S
+  PASS struct_pointer_expression stack-backed assembly
+  PASS struct_pointer_expression struct-pointer/arrow code
+  PASS struct_pointer_expression arrow member offset code
+  PASS struct_pointer_expression compile
+  PASS struct_pointer_expression binary produced
+  PASS struct_pointer_expression VM run
+  PASS struct_pointer_expression AX=002A
+  PASS struct_pointer_expression HLT
+
+Phase 5C - typed struct members
+------------------------------------------------------------------------
+  PASS struct_typed_char -S
+  PASS struct_typed_char stack-backed assembly
+  PASS struct_typed_char typed struct-member code
+  PASS struct_typed_char byte member code
+  PASS struct_typed_char compile
+  PASS struct_typed_char binary produced
+  PASS struct_typed_char VM run
+  PASS struct_typed_char AX=002A
+  PASS struct_typed_char HLT
+  PASS struct_typed_layout -S
+  PASS struct_typed_layout stack-backed assembly
+  PASS struct_typed_layout typed struct-member code
+  PASS struct_typed_layout packed member offset
+  PASS struct_typed_layout compile
+  PASS struct_typed_layout binary produced
+  PASS struct_typed_layout VM run
+  PASS struct_typed_layout AX=002A
+  PASS struct_typed_layout HLT
+  PASS struct_pointer_member_int -S
+  PASS struct_pointer_member_int stack-backed assembly
+  PASS struct_pointer_member_int typed struct-member code
+  PASS struct_pointer_member_int pointer member code
+  PASS struct_pointer_member_int compile
+  PASS struct_pointer_member_int binary produced
+  PASS struct_pointer_member_int VM run
+  PASS struct_pointer_member_int AX=002A
+  PASS struct_pointer_member_int HLT
+  PASS struct_pointer_member_char -S
+  PASS struct_pointer_member_char stack-backed assembly
+  PASS struct_pointer_member_char typed struct-member code
+  PASS struct_pointer_member_char pointer member code
+  PASS struct_pointer_member_char char pointee code
+  PASS struct_pointer_member_char compile
+  PASS struct_pointer_member_char binary produced
+  PASS struct_pointer_member_char VM run
+  PASS struct_pointer_member_char AX=002A
+  PASS struct_pointer_member_char HLT
+  PASS struct_typed_arrow -S
+  PASS struct_typed_arrow stack-backed assembly
+  PASS struct_typed_arrow typed struct-member code
+  PASS struct_typed_arrow byte member code
+  PASS struct_typed_arrow compile
+  PASS struct_typed_arrow binary produced
+  PASS struct_typed_arrow VM run
+  PASS struct_typed_arrow AX=002A
+  PASS struct_typed_arrow HLT
+
+Phase 5D - real-program stress regressions
+------------------------------------------------------------------------
+  PASS large_local_array -S
+  PASS large_local_array stack-backed assembly
+  PASS large_local_array 512-byte frame addressing
+  PASS large_local_array compile
+  PASS large_local_array binary produced
+  PASS large_local_array VM run
+  PASS large_local_array AX=002A
+  PASS large_local_array HLT
+  PASS string_hex_escape -S
+  PASS string_hex_escape stack-backed assembly
+  PASS string_hex_escape local load/store
+  PASS string_hex_escape compile
+  PASS string_hex_escape binary produced
+  PASS string_hex_escape VM run
+  PASS string_hex_escape AX=002A
+  PASS string_hex_escape HLT
+  PASS long_if_body -S
+  PASS long_if_body stack-backed assembly
+  PASS long_if_body local load/store
+  PASS long_if_body compile
+  PASS long_if_body binary produced
+  PASS long_if_body VM run
+  PASS long_if_body AX=002A
+  PASS long_if_body HLT
+  PASS long_while_body -S
+  PASS long_while_body stack-backed assembly
+  PASS long_while_body local load/store
+  PASS long_while_body compile
+  PASS long_while_body binary produced
+  PASS long_while_body VM run
+  PASS long_while_body AX=002A
+  PASS long_while_body HLT
+  PASS long_for_body -S
+  PASS long_for_body stack-backed assembly
+  PASS long_for_body local load/store
+  PASS long_for_body compile
+  PASS long_for_body binary produced
+  PASS long_for_body VM run
+  PASS long_for_body AX=002A
+  PASS long_for_body HLT
+
+Phase 6A - declaration qualifiers
+------------------------------------------------------------------------
+  PASS qualifiers_static_const -S
+  PASS qualifiers_static_const stack-backed assembly
+  PASS qualifiers_static_const local load/store
+  PASS qualifiers_static_const compile
+  PASS qualifiers_static_const binary produced
+  PASS qualifiers_static_const VM run
+  PASS qualifiers_static_const AX=002A
+  PASS qualifiers_static_const HLT
+
+Phase 6B - global/static storage
+------------------------------------------------------------------------
+  PASS global_scalar -S
+  PASS global_scalar assembly result
+  PASS global_scalar compile
+  PASS global_scalar binary produced
+  PASS global_scalar VM run
+  PASS global_scalar AX=002A
+  PASS global_scalar HLT
+  PASS global_array -S
+  PASS global_array assembly result
+  PASS global_array compile
+  PASS global_array binary produced
+  PASS global_array VM run
+  PASS global_array AX=002A
+  PASS global_array HLT
+
+Phase 6C - object macros and integer suffixes
+------------------------------------------------------------------------
+  PASS macro_array -S
+  PASS macro_array assembly result
+  PASS macro_array compile
+  PASS macro_array binary produced
+  PASS macro_array VM run
+  PASS macro_array AX=002A
+  PASS macro_array HLT
+  PASS macro_expression -S
+  PASS macro_expression assembly result
+  PASS macro_expression compile
+  PASS macro_expression binary bytes
+  PASS macro_expression VM run
+  PASS macro_expression AX=002A
+  PASS macro_expression HLT
+
+Phase 6D - includes and named declaration types
+------------------------------------------------------------------------
+  FAIL include_stdint_proto -S
+       x86-cc: error: invalid Phase 6C preprocessor directive
+
+  FAIL include_stdint_proto compile
+       x86-cc: error: invalid Phase 6C preprocessor directive
+
+  FAIL macro_lexical -S
+       x86-cc: error: invalid Phase 5B statement or expression
+
+  FAIL macro_lexical compile
+       x86-cc: error: invalid Phase 5B statement or expression
+
+
+Diagnostics
+------------------------------------------------------------------------
+  PASS invalid_hex_escape rejected
+  PASS invalid_undeclared rejected
+  PASS invalid_duplicate_local rejected
+  PASS invalid_missing_rparen rejected
+  PASS invalid_missing_semicolon rejected
+  PASS invalid_expression rejected
+  PASS invalid_break_outside_loop rejected
+  PASS invalid_continue_outside_loop rejected
+  PASS invalid_out_of_scope rejected
+  PASS invalid_for_scope rejected
+  PASS invalid_wrong_arity rejected
+  PASS invalid_duplicate_parameter rejected
+  PASS invalid_conflicting_prototype rejected
+  PASS invalid_duplicate_function rejected
+  PASS invalid_undefined_function rejected
+  PASS invalid_definition_missing_param_name rejected
+  PASS invalid_deref_nonpointer rejected
+  PASS invalid_address_undeclared rejected
+  PASS invalid_address_rvalue rejected
+  PASS invalid_pointer_scalar_init rejected
+  PASS invalid_pointer_arg_scalar rejected
+  PASS invalid_scalar_arg_pointer rejected
+  PASS invalid_pointer_prototype_mismatch rejected
+  PASS invalid_array_zero rejected
+  PASS invalid_array_assignment rejected
+  PASS invalid_scalar_subscript rejected
+  PASS invalid_pointer_add_pointer rejected
+  PASS invalid_scalar_sub_pointer rejected
+  PASS invalid_char_pointer_int_pointer rejected
+  PASS invalid_int_pointer_char_pointer rejected
+  PASS invalid_string_to_int_pointer rejected
+  PASS invalid_pointer_subscript_pointer rejected
+  PASS invalid_pointer_depth_base_mismatch rejected
+  PASS invalid_pointer_depth_arg rejected
+  PASS invalid_pointer_depth_three rejected
+  PASS invalid_pointer_array_base_mismatch rejected
+  PASS invalid_pointer_array_depth_three rejected
+  PASS invalid_struct_unknown_type rejected
+  PASS invalid_struct_unknown_member rejected
+  PASS invalid_struct_duplicate_member rejected
+  PASS invalid_struct_whole_assignment rejected
+  PASS invalid_struct_pointer_mismatch rejected
+  PASS invalid_struct_arrow_object rejected
+  PASS invalid_struct_dot_pointer rejected
+  PASS invalid_struct_pointer_depth_two rejected
+  PASS invalid_struct_member_pointer_mismatch rejected
+  PASS invalid_struct_member_char_pointer_mismatch rejected
+  PASS invalid_struct_member_pointer_depth_two rejected
+  PASS invalid_struct_member_array rejected
+x86-cc: FAIL
+make: *** [test] Error 1

@@ -1,0 +1,1 @@
+struct node{int size;int free;struct node*next;};void f(void *ptr){struct node*b;b=((struct node*)ptr)-1;b->free=1;}

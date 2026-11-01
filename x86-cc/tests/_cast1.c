@@ -1,0 +1,1 @@
+struct node { int value; }; int main(void){struct node *p;p=(struct node *)0xA000;return 42;}

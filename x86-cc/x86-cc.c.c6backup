@@ -1,0 +1,1971 @@
+/* x86-cc.c - deliberately small C-to-flat-binary compiler seed for x86.
+ * Version 0.0.28
+ *
+ * Phase 0 established the toolchain shape with:
+ *
+ *   int main(void) { return INTEGER; }
+ *   int main(void) { return INTEGER + INTEGER; }
+ *
+ * Phase 1A replaced the old one-off return-expression scanner with the
+ * beginning of a real recursive-descent expression parser.
+ *
+ * Phase 1C added scalar local int declarations, initialization, assignment,
+ * identifier lookup, and stack-backed local storage. Phase 1D integrated
+ * multiplicative expressions with runtime local values and added focused
+ * diagnostics. Phase 2A added equality and relational expressions and canonical C truth
+ * values. Phase 2B adds compound statements and if/else control flow. Phase 2C adds while loops plus break and continue. Phase 2D adds for loops. Phase 2E adds logical !, &&, and || with short-circuit evaluation. Phase 2F adds lexical block scope, local shadowing, and for-initializer scope. Phase 3A adds multiple zero-argument functions and direct function calls. Phase 3B adds integer parameters and arguments. Phase 3C validates recursive and mutually recursive calls on the function-frame model. Phase 3D adds function prototypes and a translation-unit function-signature pass. Phase 4A adds local int pointers, address-of, dereference, and indirect store. Phase 4B makes lvalue address generation explicit and composes address-of/dereference through the expression model. Phase 4C carries pointer types across function-call boundaries with pointer parameters and typed argument validation. Phase 4D adds local int arrays, indexed lvalues/rvalues, scaled indexing, and array-to-pointer decay for calls. Phase 4E adds scaled int-pointer arithmetic for pointer +/- integer and integer + pointer expressions. Phase 4F adds char objects, char pointers, char arrays, byte loads/stores, and byte-scaled pointer arithmetic. Phase 4G adds compiler-owned NUL-terminated string literals as static data and makes each literal expression yield a char pointer. Phase 4H generalizes indexed lvalues/rvalues from local arrays to typed pointer values, making p[i] equivalent to *(p + i). Phase 4I extends the compact type model to pointer depth two, enabling int ** and char ** objects, address-of pointer objects, double dereference, double-pointer parameters, and pointer-depth-preserving subscripting. Phase 4J adds local arrays whose elements are typed pointers, including array-to-pointer decay from T *[N] to T **. Phase 5A begins aggregate types with named struct definitions, local struct objects, int members, deterministic member layout, and dot-member lvalues/rvalues. Phase 5B adds pointers to named structs, address-of struct objects, typed struct-pointer assignment/initialization, and arrow-member lvalues/rvalues. Phase 5C gives struct members their own scalar/pointer type and byte offset, adding char members, int/char pointer members, packed byte-aware layout, and type-preserving dot/arrow access.
+ *
+ * Phase 2A expression grammar:
+ *
+ *   expression     := equality
+ *   equality       := relational { ('==' | '!=') relational }
+ *   relational     := additive { ('<' | '<=' | '>' | '>=') additive }
+ *   additive       := multiplicative { ('+' | '-') multiplicative }
+ *   multiplicative := unary { ('*' | '/' | '%') unary }
+ *   unary          := ('+' | '-') unary | primary
+ *   primary        := INTEGER | '(' expression ')'
+ *
+ * Expressions are currently constant-folded by the compiler.  The generated
+ * program is still 16-bit real-mode flat binary, loaded at 0000:1000.  AX is
+ * the return-value register and the standalone test program halts after main.
+ */
+
+#include <ctype.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define X86CC_VERSION "0.0.31"
+
+static int g_blackjack_target;
+#define MAX_SOURCE (1024 * 1024)
+
+
+#define MAX_STRING_LITERALS 128
+#define MAX_STRING_BYTES 1024
+
+typedef struct {
+    unsigned char bytes[MAX_STRING_BYTES];
+    int len;
+} StringLiteral;
+
+static StringLiteral g_strings[MAX_STRING_LITERALS];
+static int g_string_count;
+
+static int intern_string_literal(const char **pp) {
+    const char *p = *pp;
+    StringLiteral *lit;
+    int n = 0;
+    if (*p != '"' || g_string_count >= MAX_STRING_LITERALS) return -1;
+    lit = &g_strings[g_string_count];
+    p++;
+    while (*p && *p != '"') {
+        int ch = (unsigned char)*p++;
+        if (ch == '\\') {
+            ch = (unsigned char)*p++;
+            if (!ch) return -1;
+            if (ch == 'x') {
+                int hi, lo;
+                hi = (unsigned char)*p++;
+                lo = (unsigned char)*p++;
+                if (!isxdigit(hi) || !isxdigit(lo)) return -1;
+                hi = isdigit(hi) ? hi - '0' : 10 + (tolower(hi) - 'a');
+                lo = isdigit(lo) ? lo - '0' : 10 + (tolower(lo) - 'a');
+                ch = (hi << 4) | lo;
+            }
+            else if (ch == 'n') ch = '\n';
+            else if (ch == 'r') ch = '\r';
+            else if (ch == 't') ch = '\t';
+            else if (ch == '0') ch = 0;
+            else if (ch == '\\') ch = '\\';
+            else if (ch == '"') ch = '"';
+            else return -1;
+        }
+        if (n + 1 >= MAX_STRING_BYTES) return -1;
+        lit->bytes[n++] = (unsigned char)ch;
+    }
+    if (*p != '"') return -1;
+    p++;
+    lit->bytes[n++] = 0;
+    lit->len = n;
+    *pp = p;
+    return g_string_count++;
+}
+
+static void emit_string_pool(FILE *out) {
+    int i, j;
+    const int bytes_per_db = 16;
+    if (!g_string_count) return;
+    fprintf(out, "\n; Phase 4G compiler-owned string data\n");
+    for (i = 0; i < g_string_count; i++) {
+        fprintf(out, ".Lstr_%d:\n", i);
+        for (j = 0; j < g_strings[i].len; j++) {
+            if ((j % bytes_per_db) == 0) fprintf(out, "    db ");
+            else fprintf(out, ",");
+            fprintf(out, "0x%02X", (unsigned)g_strings[i].bytes[j]);
+            if ((j % bytes_per_db) == bytes_per_db - 1 || j == g_strings[i].len - 1)
+                fprintf(out, "\n");
+        }
+    }
+}
+
+typedef struct {
+    const char *p;
+    int ok;
+} Expr;
+
+static void skip_ws(Expr *e) {
+    while (isspace((unsigned char)*e->p)) e->p++;
+}
+
+static long parse_expression(Expr *e);
+
+static long parse_number(Expr *e) {
+    char *end = NULL;
+    long v;
+
+    skip_ws(e);
+    errno = 0;
+    v = strtol(e->p, &end, 0);
+    if (end == e->p || errno != 0) {
+        e->ok = 0;
+        return 0;
+    }
+    e->p = end;
+    return v;
+}
+
+static long parse_primary(Expr *e) {
+    long value;
+
+    skip_ws(e);
+    if (!e->ok) return 0;
+
+    if (*e->p == '(') {
+        e->p++;
+        value = parse_expression(e);
+        skip_ws(e);
+        if (!e->ok || *e->p != ')') {
+            e->ok = 0;
+            return 0;
+        }
+        e->p++;
+        return value;
+    }
+
+    return parse_number(e);
+}
+
+static long parse_unary(Expr *e) {
+    skip_ws(e);
+    if (!e->ok) return 0;
+
+    if (*e->p == '+') {
+        e->p++;
+        return parse_unary(e);
+    }
+    if (*e->p == '-') {
+        e->p++;
+        return -parse_unary(e);
+    }
+
+    return parse_primary(e);
+}
+
+static long parse_multiplicative(Expr *e) {
+    long value = parse_unary(e);
+
+    while (e->ok) {
+        long rhs;
+        char op;
+
+        skip_ws(e);
+        if (*e->p != '*' && *e->p != '/' && *e->p != '%') break;
+
+        op = *e->p++;
+        rhs = parse_unary(e);
+        if (!e->ok) return 0;
+        if ((op == '/' || op == '%') && rhs == 0) {
+            e->ok = 0;
+            return 0;
+        }
+        if (op == '*') value *= rhs;
+        else if (op == '/') value /= rhs;
+        else value %= rhs;
+    }
+
+    return value;
+}
+
+static long parse_additive(Expr *e) {
+    long value = parse_multiplicative(e);
+
+    while (e->ok) {
+        long rhs;
+        char op;
+
+        skip_ws(e);
+        if (*e->p != '+' && *e->p != '-') break;
+
+        op = *e->p++;
+        rhs = parse_multiplicative(e);
+        if (!e->ok) return 0;
+        value = (op == '+') ? value + rhs : value - rhs;
+    }
+
+    return value;
+}
+
+static long parse_relational(Expr *e) {
+    long value = parse_additive(e);
+
+    while (e->ok) {
+        long rhs;
+        int op = 0;
+
+        skip_ws(e);
+        if (!strncmp(e->p, "<=", 2)) { op = 1; e->p += 2; }
+        else if (!strncmp(e->p, ">=", 2)) { op = 2; e->p += 2; }
+        else if (*e->p == '<') { op = 3; e->p++; }
+        else if (*e->p == '>') { op = 4; e->p++; }
+        else break;
+
+        rhs = parse_additive(e);
+        if (!e->ok) return 0;
+        if (op == 1) value = (value <= rhs);
+        else if (op == 2) value = (value >= rhs);
+        else if (op == 3) value = (value < rhs);
+        else value = (value > rhs);
+    }
+    return value;
+}
+
+static long parse_equality(Expr *e) {
+    long value = parse_relational(e);
+
+    while (e->ok) {
+        long rhs;
+        int is_equal;
+
+        skip_ws(e);
+        if (!strncmp(e->p, "==", 2)) { is_equal = 1; e->p += 2; }
+        else if (!strncmp(e->p, "!=", 2)) { is_equal = 0; e->p += 2; }
+        else break;
+
+        rhs = parse_relational(e);
+        if (!e->ok) return 0;
+        value = is_equal ? (value == rhs) : (value != rhs);
+    }
+    return value;
+}
+
+static long parse_expression(Expr *e) {
+    return parse_equality(e);
+}
+
+static long parse_return_expression(const char *s, int *ok) {
+    Expr e = { s, 1 };
+    long value = parse_expression(&e);
+
+    skip_ws(&e);
+    if (*e.p != '\0') e.ok = 0;
+    *ok = e.ok;
+    return value;
+}
+
+static char *read_file(const char *path) {
+    FILE *f;
+    long n;
+    char *buf;
+
+    f = fopen(path, "rb");
+    if (!f) return NULL;
+    if (fseek(f, 0, SEEK_END) != 0) { fclose(f); return NULL; }
+    n = ftell(f);
+    if (n < 0 || n > MAX_SOURCE) { fclose(f); return NULL; }
+    rewind(f);
+    buf = (char *)malloc((size_t)n + 1);
+    if (!buf) { fclose(f); return NULL; }
+    if (n && fread(buf, 1, (size_t)n, f) != (size_t)n) {
+        free(buf);
+        fclose(f);
+        return NULL;
+    }
+    buf[n] = '\0';
+    fclose(f);
+    return buf;
+}
+
+static void compact_ws(char *s) {
+    char *r = s, *w = s;
+    int pending_space = 0;
+
+    while (*r) {
+        if (isspace((unsigned char)*r)) {
+            pending_space = 1;
+            r++;
+            continue;
+        }
+        if (pending_space && w != s && w[-1] != '{' && w[-1] != ';' &&
+            *r != '}' && *r != ';' && *r != '(' && w[-1] != '(') {
+            *w++ = ' ';
+        }
+        pending_space = 0;
+        *w++ = *r++;
+    }
+    *w = '\0';
+}
+
+static int find_return_expr(const char *src, char *expr, size_t exprsz) {
+    const char *p = src;
+    const char *q;
+    size_t n;
+
+    while ((p = strstr(p, "return")) != NULL) {
+        unsigned char before = (p == src) ? 0 : (unsigned char)p[-1];
+        unsigned char after = (unsigned char)p[6];
+        if ((p == src || !(isalnum(before) || before == '_')) &&
+            !(isalnum(after) || after == '_')) {
+            break;
+        }
+        p += 6;
+    }
+    if (!p) return 0;
+
+    p += 6;
+    while (isspace((unsigned char)*p)) p++;
+    q = strchr(p, ';');
+    if (!q) return 0;
+    n = (size_t)(q - p);
+    if (n + 1 > exprsz) return 0;
+    memcpy(expr, p, n);
+    expr[n] = '\0';
+    return 1;
+}
+
+#define MAX_STRUCT_TYPES 16
+#define MAX_STRUCT_MEMBERS 16
+
+typedef struct {
+    char name[64];
+    char member_name[MAX_STRUCT_MEMBERS][64];
+    int member_pointer[MAX_STRUCT_MEMBERS]; /* Phase 5C: 0 scalar, 1 pointer */
+    int member_char[MAX_STRUCT_MEMBERS];    /* scalar/pointee base type */
+    int member_offset[MAX_STRUCT_MEMBERS];  /* byte offset from struct base */
+    int member_count;
+    int size_bytes;
+} StructType;
+
+static StructType g_structs[MAX_STRUCT_TYPES];
+static int g_struct_count;
+
+static int struct_find(const char *name) {
+    int i;
+    for (i = 0; i < g_struct_count; i++)
+        if (!strcmp(g_structs[i].name, name)) return i;
+    return -1;
+}
+
+static int struct_member_find(int sid, const char *name) {
+    int i;
+    if (sid < 0 || sid >= g_struct_count) return -1;
+    for (i = 0; i < g_structs[sid].member_count; i++)
+        if (!strcmp(g_structs[sid].member_name[i], name)) return i;
+    return -1;
+}
+
+/* Phase 5C: members now carry type and byte layout metadata.  The current
+ * aggregate fence supports int, char, int *, and char * members.  Layout is
+ * deliberately packed and deterministic: char consumes one byte, while int
+ * and pointers consume two.  Nested structs, member arrays, and T ** members
+ * remain later work. */
+static int scan_struct_defs(const char *src) {
+    const char *p = src;
+    g_struct_count = 0;
+    while (*p) {
+        const char *q;
+        char sname[64];
+        size_t sn = 0;
+        int sid, members = 0, size_bytes = 0;
+        while (isspace((unsigned char)*p)) p++;
+        if (strncmp(p, "struct", 6) || (isalnum((unsigned char)p[6]) || p[6] == '_')) {
+            p++;
+            continue;
+        }
+        q = p + 6;
+        while (isspace((unsigned char)*q)) q++;
+        if (!(isalpha((unsigned char)*q) || *q == '_')) return 0;
+        while ((isalnum((unsigned char)*q) || *q == '_') && sn + 1 < sizeof(sname)) sname[sn++] = *q++;
+        sname[sn] = 0;
+        while (isspace((unsigned char)*q)) q++;
+        if (*q != '{') { p++; continue; } /* local/reference use, not a definition */
+        if (struct_find(sname) >= 0 || g_struct_count >= MAX_STRUCT_TYPES) return 0;
+        sid = g_struct_count;
+        snprintf(g_structs[sid].name, sizeof(g_structs[sid].name), "%s", sname);
+        q++;
+        while (1) {
+            char mname[64]; size_t mn = 0; int k, is_char = 0, pointer_depth = 0;
+            while (isspace((unsigned char)*q)) q++;
+            if (*q == '}') { q++; break; }
+            if (!strncmp(q, "int", 3) && isspace((unsigned char)q[3])) q += 3;
+            else if (!strncmp(q, "char", 4) && isspace((unsigned char)q[4])) { q += 4; is_char = 1; }
+            else return 0;
+            while (isspace((unsigned char)*q)) q++;
+            while (*q == '*') { pointer_depth++; q++; while (isspace((unsigned char)*q)) q++; }
+            if (pointer_depth > 1) return 0;
+            if (!(isalpha((unsigned char)*q) || *q == '_')) return 0;
+            while ((isalnum((unsigned char)*q) || *q == '_') && mn + 1 < sizeof(mname)) mname[mn++] = *q++;
+            mname[mn] = 0;
+            while (isspace((unsigned char)*q)) q++;
+            if (*q != ';' || members >= MAX_STRUCT_MEMBERS) return 0;
+            for (k = 0; k < members; k++) if (!strcmp(g_structs[sid].member_name[k], mname)) return 0;
+            snprintf(g_structs[sid].member_name[members], 64, "%s", mname);
+            g_structs[sid].member_pointer[members] = pointer_depth;
+            g_structs[sid].member_char[members] = is_char;
+            g_structs[sid].member_offset[members] = size_bytes;
+            size_bytes += (is_char && pointer_depth == 0) ? 1 : 2;
+            members++;
+            q++;
+        }
+        if (members == 0) return 0;
+        while (isspace((unsigned char)*q)) q++;
+        if (*q != ';') return 0;
+        q++;
+        g_structs[sid].member_count = members;
+        g_structs[sid].size_bytes = size_bytes;
+        g_struct_count++;
+        p = q;
+    }
+    return 1;
+}
+
+#define MAX_LOCALS 512
+
+typedef struct {
+    char name[64];
+    int offset; /* signed BP displacement: locals negative, parameters positive */
+    int is_pointer; /* Phase 4I: pointer depth (0, 1, or 2) */
+    int is_char;    /* Phase 4F: char object, or char element/pointee when pointer/array */
+    int array_len;  /* >0 for local array objects */
+    int struct_id;  /* Phase 5A: >=0 for a local struct object */
+} Local;
+
+typedef struct {
+    const char *p;
+    int ok;
+    FILE *out;
+    Local locals[MAX_LOCALS];
+    int nlocals;
+    int total_locals;
+    int scope_depth;
+    int scope_base[32];
+    int next_label;
+    int loop_depth;
+    int break_label[32];
+    int continue_label[32];
+    int loop_kind[32]; /* 0=while, 1=for */
+    char return_label[80];
+    int expr_is_pointer; /* Phase 4I: pointer depth of most recent expression */
+    int expr_pointer_char; /* base type is char when pointer depth > 0 */
+    int expr_struct_id; /* Phase 5B: >=0 when expression is pointer to named struct */
+} BodyParser;
+
+static void body_ws(BodyParser *b) {
+    while (isspace((unsigned char)*b->p)) b->p++;
+}
+
+static int body_ident(BodyParser *b, char *name, size_t namesz) {
+    const char *start;
+    size_t n;
+    body_ws(b);
+    if (!(isalpha((unsigned char)*b->p) || *b->p == '_')) return 0;
+    start = b->p++;
+    while (isalnum((unsigned char)*b->p) || *b->p == '_') b->p++;
+    n = (size_t)(b->p - start);
+    if (n + 1 > namesz) { b->ok = 0; return 0; }
+    memcpy(name, start, n);
+    name[n] = '\0';
+    return 1;
+}
+
+static int body_kw(BodyParser *b, const char *kw) {
+    size_t n = strlen(kw);
+    body_ws(b);
+    if (strncmp(b->p, kw, n) != 0) return 0;
+    if (isalnum((unsigned char)b->p[n]) || b->p[n] == '_') return 0;
+    b->p += n;
+    return 1;
+}
+
+static int local_find(BodyParser *b, const char *name) {
+    int i;
+    /* Search innermost declarations first so a block-local may shadow an
+     * outer declaration without changing expression code generation. */
+    for (i = b->nlocals - 1; i >= 0; i--)
+        if (!strcmp(b->locals[i].name, name)) return i;
+    return -1;
+}
+
+static int local_find_current_scope(BodyParser *b, const char *name) {
+    int i;
+    int base = b->scope_depth > 0 ? b->scope_base[b->scope_depth - 1] : 0;
+    for (i = b->nlocals - 1; i >= base; i--)
+        if (!strcmp(b->locals[i].name, name)) return i;
+    return -1;
+}
+
+static void scope_enter(BodyParser *b) {
+    if (b->scope_depth >= 32) { b->ok = 0; return; }
+    b->scope_base[b->scope_depth++] = b->nlocals;
+}
+
+static void scope_leave(BodyParser *b) {
+    if (b->scope_depth <= 0) { b->ok = 0; return; }
+    b->nlocals = b->scope_base[--b->scope_depth];
+}
+
+static int local_add_typed(BodyParser *b, const char *name, int is_pointer, int is_char) {
+    Local *l;
+    if (b->nlocals >= MAX_LOCALS || b->total_locals >= MAX_LOCALS ||
+        local_find_current_scope(b, name) >= 0) {
+        b->ok = 0;
+        return -1;
+    }
+    l = &b->locals[b->nlocals];
+    snprintf(l->name, sizeof(l->name), "%s", name);
+    /* Keep each declaration on a distinct preallocated frame slot.  Scope
+     * exit removes the name from lookup, not the already reserved storage. */
+    l->offset = -2 * (b->total_locals + 1);
+    l->is_pointer = is_pointer;
+    l->is_char = is_char;
+    l->array_len = 0;
+    l->struct_id = -1;
+    b->total_locals++;
+    return b->nlocals++;
+}
+
+static int local_add_array(BodyParser *b, const char *name, int array_len, int is_char, int element_pointer_depth) {
+    Local *l;
+    if (array_len <= 0 || b->nlocals >= MAX_LOCALS ||
+        b->total_locals + ((is_char && element_pointer_depth == 0) ? (array_len + 1) / 2 : array_len) > MAX_LOCALS ||
+        local_find_current_scope(b, name) >= 0) {
+        b->ok = 0;
+        return -1;
+    }
+    l = &b->locals[b->nlocals];
+    snprintf(l->name, sizeof(l->name), "%s", name);
+    /* Arrays are contiguous. int elements occupy two bytes; char elements one. */
+    {
+        int slots = (is_char && element_pointer_depth == 0) ? (array_len + 1) / 2 : array_len;
+        l->offset = -2 * (b->total_locals + slots);
+        b->total_locals += slots;
+    }
+    l->is_pointer = element_pointer_depth;
+    l->is_char = is_char;
+    l->array_len = array_len;
+    l->struct_id = -1;
+    return b->nlocals++;
+}
+
+static int local_add_struct(BodyParser *b, const char *name, int sid) {
+    Local *l;
+    int slots;
+    if (sid < 0 || sid >= g_struct_count) { b->ok = 0; return -1; }
+    slots = (g_structs[sid].size_bytes + 1) / 2;
+    if (b->nlocals >= MAX_LOCALS || b->total_locals + slots > MAX_LOCALS ||
+        local_find_current_scope(b, name) >= 0) { b->ok = 0; return -1; }
+    l = &b->locals[b->nlocals];
+    snprintf(l->name, sizeof(l->name), "%s", name);
+    l->offset = -2 * (b->total_locals + slots);
+    l->is_pointer = 0;
+    l->is_char = 0;
+    l->array_len = 0;
+    l->struct_id = sid;
+    b->total_locals += slots;
+    return b->nlocals++;
+}
+
+static int local_add_struct_pointer(BodyParser *b, const char *name, int sid) {
+    Local *l;
+    if (sid < 0 || sid >= g_struct_count) { b->ok = 0; return -1; }
+    if (b->nlocals >= MAX_LOCALS || b->total_locals >= MAX_LOCALS ||
+        local_find_current_scope(b, name) >= 0) { b->ok = 0; return -1; }
+    l = &b->locals[b->nlocals];
+    snprintf(l->name, sizeof(l->name), "%s", name);
+    l->offset = -2 * (b->total_locals + 1);
+    l->is_pointer = 1;
+    l->is_char = 0;
+    l->array_len = 0;
+    l->struct_id = sid;
+    b->total_locals++;
+    return b->nlocals++;
+}
+
+
+
+static int g_function_count;
+static char g_function_names[32][64];
+static int g_function_arity[32];
+static int g_function_defined[32];
+static int g_function_param_pointer[32][8];
+static int g_function_param_char[32][8];
+
+static int function_arity(const char *name) {
+    int i;
+    for (i = 0; i < g_function_count; i++)
+        if (!strcmp(g_function_names[i], name)) return g_function_arity[i];
+    return -1;
+}
+
+static int function_defined(const char *name) {
+    int i;
+    for (i = 0; i < g_function_count; i++)
+        if (!strcmp(g_function_names[i], name)) {
+            if (g_function_defined[i]) return 1;
+            if (g_blackjack_target && (!strcmp(name, "bj_write") || !strcmp(name, "bj_mem_kb") || !strcmp(name, "bj_mem_used_kb") || !strcmp(name, "bj_shutdown") || !strcmp(name, "bj_date") || !strcmp(name, "bj_time") || !strcmp(name, "bj_sleep_ms") || !strcmp(name, "bj_open") || !strcmp(name, "bj_read") || !strcmp(name, "bj_close") || !strcmp(name, "bj_file_save") || !strcmp(name, "bj_create") || !strcmp(name, "bj_getch") || !strcmp(name, "bj_args") || !strcmp(name, "bj_date_md") || !strcmp(name, "bj_time_sec"))) return 1;
+            return 0;
+        }
+    return 0;
+}
+
+static int function_param_is_pointer(const char *name, int index) {
+    int i;
+    for (i = 0; i < g_function_count; i++) {
+        if (!strcmp(g_function_names[i], name)) {
+            if (index < 0 || index >= g_function_arity[i]) return -1;
+            return g_function_param_pointer[i][index];
+        }
+    }
+    return -1;
+}
+
+
+static int function_param_is_char(const char *name, int index) {
+    int i;
+    for (i = 0; i < g_function_count; i++) {
+        if (!strcmp(g_function_names[i], name)) {
+            if (index < 0 || index >= g_function_arity[i]) return -1;
+            return g_function_param_char[i][index];
+        }
+    }
+    return -1;
+}
+static void emit_bp_load(FILE *out, int offset) {
+    if (offset >= 0) fprintf(out, "    mov ax, [bp+%d]\n", offset);
+    else fprintf(out, "    mov ax, [bp-%d]\n", -offset);
+}
+
+static void emit_bp_store(FILE *out, int offset) {
+    if (offset >= 0) fprintf(out, "    mov [bp+%d], ax\n", offset);
+    else fprintf(out, "    mov [bp-%d], ax\n", -offset);
+}
+
+static void emit_bp_load_char(FILE *out, int offset) {
+    if (offset >= 0) fprintf(out, "    mov al, [bp+%d]\n", offset);
+    else fprintf(out, "    mov al, [bp-%d]\n", -offset);
+    fprintf(out, "    mov ah, 0\n");
+}
+
+static void emit_bp_store_char(FILE *out, int offset) {
+    if (offset >= 0) fprintf(out, "    mov [bp+%d], al\n", offset);
+    else fprintf(out, "    mov [bp-%d], al\n", -offset);
+}
+
+static void cg_expr(BodyParser *b);
+static void cg_unary(BodyParser *b);
+
+static void emit_local_address(FILE *out, int offset) {
+    fprintf(out, "    mov ax, bp\n");
+    if (offset < 0) {
+        fprintf(out, "    mov bx, %d\n", -offset);
+        fprintf(out, "    sub ax, bx\n");
+    } else if (offset > 0) {
+        fprintf(out, "    mov bx, %d\n", offset);
+        fprintf(out, "    add ax, bx\n");
+    }
+}
+
+/* Phase 4B: generate the address of an assignable expression instead of
+ * immediately loading its value.  This is the compiler's first explicit
+ * lvalue path.  The current type system has only int and int *, so an lvalue
+ * is either an int object or an int * object. */
+static int cg_lvalue_address(BodyParser *b, int *lvalue_is_pointer, int *lvalue_is_char, int *lvalue_struct_id) {
+    char name[64];
+    int idx;
+    body_ws(b);
+
+    if (*b->p == '*') {
+        b->p++;
+        /* For *E, E supplies the address.  Do not perform the load here. */
+        cg_unary(b);
+        if (!b->ok || b->expr_is_pointer <= 0) { b->ok = 0; return 0; }
+        *lvalue_is_pointer = b->expr_is_pointer - 1;
+        *lvalue_is_char = b->expr_pointer_char;
+        *lvalue_struct_id = b->expr_struct_id;
+        b->expr_is_pointer = 1; /* internal: AX is the lvalue address */
+        return 1;
+    }
+
+    if (!body_ident(b, name, sizeof(name))) { b->ok = 0; return 0; }
+    idx = local_find(b, name);
+    if (idx < 0) { b->ok = 0; return 0; }
+    body_ws(b);
+    if (!strncmp(b->p, "->", 2)) {
+        char member[64];
+        int mid;
+        if (b->locals[idx].struct_id < 0 || b->locals[idx].is_pointer != 1 || b->locals[idx].array_len > 0) {
+            b->ok = 0; return 0;
+        }
+        b->p += 2;
+        if (!body_ident(b, member, sizeof(member))) { b->ok = 0; return 0; }
+        mid = struct_member_find(b->locals[idx].struct_id, member);
+        if (mid < 0) { b->ok = 0; return 0; }
+        emit_bp_load(b->out, b->locals[idx].offset);
+        if (g_structs[b->locals[idx].struct_id].member_offset[mid]) {
+            fprintf(b->out, "    mov bx, %d\n", g_structs[b->locals[idx].struct_id].member_offset[mid]);
+            fprintf(b->out, "    add ax, bx\n");
+        }
+        *lvalue_is_pointer = g_structs[b->locals[idx].struct_id].member_pointer[mid];
+        *lvalue_is_char = g_structs[b->locals[idx].struct_id].member_char[mid];
+        *lvalue_struct_id = -1;
+        b->expr_is_pointer = 1;
+        b->expr_pointer_char = *lvalue_is_char;
+        b->expr_struct_id = -1;
+        return 1;
+    }
+    if (*b->p == '.') {
+        char member[64];
+        int mid;
+        if (b->locals[idx].struct_id < 0 || b->locals[idx].is_pointer != 0) { b->ok = 0; return 0; }
+        b->p++;
+        if (!body_ident(b, member, sizeof(member))) { b->ok = 0; return 0; }
+        mid = struct_member_find(b->locals[idx].struct_id, member);
+        if (mid < 0) { b->ok = 0; return 0; }
+        emit_local_address(b->out, b->locals[idx].offset);
+        if (g_structs[b->locals[idx].struct_id].member_offset[mid]) {
+            fprintf(b->out, "    mov bx, %d\n", g_structs[b->locals[idx].struct_id].member_offset[mid]);
+            fprintf(b->out, "    add ax, bx\n");
+        }
+        *lvalue_is_pointer = g_structs[b->locals[idx].struct_id].member_pointer[mid];
+        *lvalue_is_char = g_structs[b->locals[idx].struct_id].member_char[mid];
+        *lvalue_struct_id = -1;
+        b->expr_is_pointer = 1;
+        b->expr_pointer_char = *lvalue_is_char;
+        b->expr_struct_id = -1;
+        return 1;
+    }
+    if (*b->p == '[') {
+        int base_is_array = b->locals[idx].array_len > 0;
+        int base_is_pointer = b->locals[idx].is_pointer;
+        int element_is_char = b->locals[idx].is_char;
+        int element_pointer_depth = base_is_array ? base_is_pointer : (base_is_pointer ? base_is_pointer - 1 : 0);
+        if (!base_is_array && !base_is_pointer) { b->ok = 0; return 0; }
+        b->p++;
+        cg_expr(b);
+        if (!b->ok || b->expr_is_pointer) { b->ok = 0; return 0; }
+        body_ws(b);
+        if (*b->p != ']') { b->ok = 0; return 0; }
+        b->p++;
+        /* Phase 4H: a[i] and p[i] share one indexed-lvalue path. AX holds
+         * the scalar index. Scale by the pointee size, then add either the
+         * local array base address or the pointer value loaded from its slot. */
+        if (!((base_is_array && base_is_pointer == 0 && element_is_char) ||
+              (!base_is_array && base_is_pointer == 1 && element_is_char)))
+            fprintf(b->out, "    add ax, ax\n");
+        fprintf(b->out, "    push ax\n");
+        if (base_is_array) emit_local_address(b->out, b->locals[idx].offset);
+        else emit_bp_load(b->out, b->locals[idx].offset);
+        fprintf(b->out, "    pop bx\n");
+        fprintf(b->out, "    add ax, bx\n");
+        *lvalue_is_pointer = element_pointer_depth;
+        *lvalue_is_char = element_is_char;
+        *lvalue_struct_id = -1;
+        b->expr_is_pointer = 1; /* internal: AX is the element address */
+        b->expr_pointer_char = element_is_char;
+        return 1;
+    }
+    if (b->locals[idx].array_len > 0) { b->ok = 0; return 0; }
+    emit_local_address(b->out, b->locals[idx].offset);
+    *lvalue_is_pointer = b->locals[idx].is_pointer;
+    *lvalue_is_char = b->locals[idx].is_char;
+    *lvalue_struct_id = b->locals[idx].struct_id;
+    b->expr_is_pointer = 1; /* internal: AX is the object address */
+    b->expr_pointer_char = b->locals[idx].is_char;
+    b->expr_struct_id = b->locals[idx].struct_id;
+    return 1;
+}
+
+static void cg_primary(BodyParser *b) {
+    char name[64];
+    char *end = NULL;
+    long v;
+    int idx;
+
+    body_ws(b);
+    if (*b->p == '"') {
+        int string_id = intern_string_literal(&b->p);
+        if (string_id < 0) { b->ok = 0; return; }
+        fprintf(b->out, "    mov ax, .Lstr_%d\n", string_id);
+        b->expr_is_pointer = 1;
+        b->expr_pointer_char = 1;
+        b->expr_struct_id = -1;
+        return;
+    }
+    if (*b->p == '(') {
+        b->p++;
+        cg_expr(b);
+        body_ws(b);
+        if (*b->p != ')') { b->ok = 0; return; }
+        b->p++;
+        return;
+    }
+    if (isalpha((unsigned char)*b->p) || *b->p == '_') {
+        const char *ident_start = b->p;
+        if (!body_ident(b, name, sizeof(name))) { b->ok = 0; return; }
+        body_ws(b);
+        if (*b->p == '(') {
+            int argc = 0;
+            int arity = function_arity(name);
+            b->p++; body_ws(b);
+            if (*b->p != ')') {
+                for (;;) {
+                    int want_pointer = function_param_is_pointer(name, argc);
+                    int want_char = function_param_is_char(name, argc);
+                    cg_expr(b);
+                    if (!b->ok || want_pointer < 0 || want_char < 0 || b->expr_is_pointer != want_pointer ||
+                        (want_pointer && b->expr_pointer_char != want_char)) { b->ok = 0; return; }
+                    fprintf(b->out, "    push ax\n");
+                    argc++;
+                    body_ws(b);
+                    if (*b->p == ',') { b->p++; continue; }
+                    break;
+                }
+            }
+            body_ws(b);
+            if (*b->p != ')' || arity < 0 || argc != arity || !function_defined(name)) { b->ok = 0; return; }
+            b->p++;
+            fprintf(b->out, "    call %s\n", name);
+            while (argc-- > 0) fprintf(b->out, "    pop bx\n");
+            b->expr_is_pointer = g_blackjack_target && !strcmp(name, "bj_args");
+            b->expr_pointer_char = b->expr_is_pointer;
+            b->expr_struct_id = -1;
+            return;
+        }
+        idx = local_find(b, name);
+        if (idx < 0) { b->ok = 0; return; }
+        body_ws(b);
+        if (*b->p == '[' || *b->p == '.' || !strncmp(b->p, "->", 2)) {
+            int lv_is_pointer = 0, lv_is_char = 0, lv_struct_id = -1;
+            /* Rewind to the identifier so the shared lvalue path computes a[i]. */
+            b->p = ident_start;
+            if (!cg_lvalue_address(b, &lv_is_pointer, &lv_is_char, &lv_struct_id)) { b->ok = 0; return; }
+            fprintf(b->out, "    mov bx, ax\n");
+            if (lv_is_pointer == 0 && lv_is_char) fprintf(b->out, "    mov al, [bx]\n    mov ah, 0\n");
+            else fprintf(b->out, "    mov ax, [bx]\n");
+            b->expr_is_pointer = lv_is_pointer;
+            b->expr_pointer_char = lv_is_pointer ? lv_is_char : 0;
+            b->expr_struct_id = lv_is_pointer ? lv_struct_id : -1;
+            return;
+        }
+        if (b->locals[idx].struct_id >= 0 && b->locals[idx].is_pointer == 0) { b->ok = 0; return; }
+        if (b->locals[idx].array_len > 0) {
+            /* Array-to-pointer decay: bare local array expression yields &a[0]. */
+            emit_local_address(b->out, b->locals[idx].offset);
+            b->expr_is_pointer = b->locals[idx].is_pointer + 1;
+            b->expr_pointer_char = b->locals[idx].is_char;
+            return;
+        }
+        if (b->locals[idx].is_char && !b->locals[idx].is_pointer) emit_bp_load_char(b->out, b->locals[idx].offset);
+        else emit_bp_load(b->out, b->locals[idx].offset);
+        b->expr_is_pointer = b->locals[idx].is_pointer;
+        b->expr_pointer_char = b->locals[idx].is_pointer ? b->locals[idx].is_char : 0;
+        b->expr_struct_id = b->locals[idx].is_pointer ? b->locals[idx].struct_id : -1;
+        return;
+    }
+    errno = 0;
+    v = strtol(b->p, &end, 0);
+    if (end == b->p || errno || v < -32768 || v > 65535) { b->ok = 0; return; }
+    b->p = end;
+    fprintf(b->out, "    mov ax, 0x%04lX\n", v & 0xFFFFL);
+    b->expr_is_pointer = 0;
+    b->expr_pointer_char = 0;
+    b->expr_struct_id = -1;
+}
+
+static void cg_unary(BodyParser *b) {
+    body_ws(b);
+    if (*b->p == '&') {
+        int lv_is_pointer = 0, lv_is_char = 0, lv_struct_id = -1;
+        b->p++;
+        if (!cg_lvalue_address(b, &lv_is_pointer, &lv_is_char, &lv_struct_id)) return;
+        if (lv_is_pointer >= 2 || (lv_struct_id >= 0 && lv_is_pointer >= 1)) { b->ok = 0; return; }
+        b->expr_is_pointer = lv_is_pointer + 1;
+        b->expr_pointer_char = lv_is_char;
+        b->expr_struct_id = lv_struct_id;
+        return;
+    }
+    if (*b->p == '*') {
+        b->p++;
+        cg_unary(b);
+        if (!b->ok || b->expr_is_pointer <= 0) { b->ok = 0; return; }
+        {
+            int in_depth = b->expr_is_pointer;
+            int base_char = b->expr_pointer_char;
+            if (b->expr_struct_id >= 0) { b->ok = 0; return; } /* struct rvalues by dereference deferred */
+            fprintf(b->out, "    mov bx, ax\n");
+            if (in_depth == 1 && base_char) fprintf(b->out, "    mov al, [bx]\n    mov ah, 0\n");
+            else fprintf(b->out, "    mov ax, [bx]\n");
+            b->expr_is_pointer = in_depth - 1;
+            b->expr_pointer_char = (in_depth - 1) ? base_char : 0;
+        }
+        return;
+    }
+    if (*b->p == '+') {
+        b->p++;
+        cg_unary(b);
+        if (b->ok && b->expr_is_pointer) b->ok = 0;
+        return;
+    }
+    if (*b->p == '-') {
+        b->p++;
+        cg_unary(b);
+        if (!b->ok || b->expr_is_pointer) { b->ok = 0; return; }
+        fprintf(b->out, "    neg ax\n");
+        b->expr_is_pointer = 0;
+        return;
+    }
+    if (*b->p == '!' && b->p[1] != '=') {
+        int label = b->next_label++;
+        b->p++;
+        cg_unary(b);
+        if (!b->ok) return;
+        fprintf(b->out, "    cmp ax, 0\n");
+        fprintf(b->out, "    mov ax, 0\n");
+        fprintf(b->out, "    jne .Lnot_end_%d\n", label);
+        fprintf(b->out, "    mov ax, 1\n");
+        fprintf(b->out, ".Lnot_end_%d:\n", label);
+        b->expr_is_pointer = 0;
+        return;
+    }
+    cg_primary(b);
+}
+
+static void cg_multiplicative(BodyParser *b) {
+    cg_unary(b);
+    while (b->ok) {
+        char op;
+        body_ws(b);
+        if (*b->p != '*' && *b->p != '/' && *b->p != '%') break;
+        op = *b->p++;
+        fprintf(b->out, "    push ax\n");
+        cg_unary(b);
+        if (!b->ok) return;
+        fprintf(b->out, "    mov bx, ax\n");
+        fprintf(b->out, "    pop ax\n");
+        if (op == '*') {
+            /* The low 16 bits of MUL are also correct for two's-complement
+             * signed multiplication; signed overflow is outside this phase. */
+            fprintf(b->out, "    mul bx\n");
+        } else {
+            /* Phase 1D division/remainder accepts non-negative runtime
+             * operands. Signed IDIV semantics arrive with the scalar type
+             * work; for now use the 8086 unsigned DIV path explicitly. */
+            fprintf(b->out, "    xor dx, dx\n");
+            fprintf(b->out, "    div bx\n");
+            if (op == '%') fprintf(b->out, "    mov ax, dx\n");
+        }
+        b->expr_is_pointer = 0;
+        b->expr_struct_id = -1;
+    }
+}
+
+static void cg_additive(BodyParser *b) {
+    int lhs_pointer, lhs_pointer_char, lhs_struct_id;
+    cg_multiplicative(b);
+    lhs_pointer = b->expr_is_pointer;
+    lhs_pointer_char = b->expr_pointer_char;
+    lhs_struct_id = b->expr_struct_id;
+    while (b->ok) {
+        char op;
+        int rhs_pointer, rhs_pointer_char, rhs_struct_id;
+        body_ws(b);
+        if (*b->p != '+' && *b->p != '-') break;
+        op = *b->p++;
+        fprintf(b->out, "    push ax\n");
+        cg_multiplicative(b);
+        if (!b->ok) return;
+        rhs_pointer = b->expr_is_pointer;
+        rhs_pointer_char = b->expr_pointer_char;
+        rhs_struct_id = b->expr_struct_id;
+        fprintf(b->out, "    pop bx\n");
+        if (lhs_struct_id >= 0 || rhs_struct_id >= 0) { b->ok = 0; return; }
+
+        /* Phase 4E/4F: pointer arithmetic is scaled by pointee size (int=2, char=1).
+         * BX holds the left operand and AX the right operand here. */
+        if (lhs_pointer && !rhs_pointer) {
+            if (!(lhs_pointer == 1 && lhs_pointer_char)) fprintf(b->out, "    add ax, ax\n");
+            if (op == '+') fprintf(b->out, "    add bx, ax\n");
+            else fprintf(b->out, "    sub bx, ax\n");
+            fprintf(b->out, "    mov ax, bx\n");
+            lhs_pointer = 1;
+        } else if (!lhs_pointer && rhs_pointer && op == '+') {
+            /* int + pointer: scale the integer left operand, then add it
+             * to the pointer right operand. */
+            if (!(rhs_pointer == 1 && rhs_pointer_char)) fprintf(b->out, "    add bx, bx\n");
+            fprintf(b->out, "    add ax, bx\n");
+            lhs_pointer = 1;
+            lhs_pointer_char = rhs_pointer_char;
+        } else if (!lhs_pointer && !rhs_pointer) {
+            if (op == '+') fprintf(b->out, "    add bx, ax\n");
+            else fprintf(b->out, "    sub bx, ax\n");
+            fprintf(b->out, "    mov ax, bx\n");
+            lhs_pointer = 0;
+        } else {
+            /* pointer + pointer and scalar - pointer are not C pointer
+             * arithmetic forms. Pointer difference is deferred. */
+            b->ok = 0;
+            return;
+        }
+        b->expr_is_pointer = lhs_pointer;
+        b->expr_pointer_char = lhs_pointer ? lhs_pointer_char : 0;
+    }
+}
+
+static void cg_bool_result(BodyParser *b, const char *false_jump) {
+    int label = b->next_label++;
+    fprintf(b->out, "    mov ax, 0\n");
+    fprintf(b->out, "    %s .Lcmp_end_%d\n", false_jump, label);
+    fprintf(b->out, "    mov ax, 1\n");
+    fprintf(b->out, ".Lcmp_end_%d:\n", label);
+    b->expr_is_pointer = 0;
+    b->expr_struct_id = -1;
+}
+
+static void cg_relational(BodyParser *b) {
+    cg_additive(b);
+    while (b->ok) {
+        const char *false_jump = NULL;
+        body_ws(b);
+        if (!strncmp(b->p, "<=", 2)) { false_jump = "jg"; b->p += 2; }
+        else if (!strncmp(b->p, ">=", 2)) { false_jump = "jl"; b->p += 2; }
+        else if (*b->p == '<') { false_jump = "jge"; b->p++; }
+        else if (*b->p == '>') { false_jump = "jle"; b->p++; }
+        else break;
+
+        fprintf(b->out, "    push ax\n");
+        cg_additive(b);
+        if (!b->ok) return;
+        fprintf(b->out, "    mov bx, ax\n");
+        fprintf(b->out, "    pop ax\n");
+        fprintf(b->out, "    cmp ax, bx\n");
+        cg_bool_result(b, false_jump);
+    }
+}
+
+static void cg_equality(BodyParser *b) {
+    cg_relational(b);
+    while (b->ok) {
+        const char *false_jump = NULL;
+        body_ws(b);
+        if (!strncmp(b->p, "==", 2)) { false_jump = "jne"; b->p += 2; }
+        else if (!strncmp(b->p, "!=", 2)) { false_jump = "je"; b->p += 2; }
+        else break;
+
+        fprintf(b->out, "    push ax\n");
+        cg_relational(b);
+        if (!b->ok) return;
+        fprintf(b->out, "    mov bx, ax\n");
+        fprintf(b->out, "    pop ax\n");
+        fprintf(b->out, "    cmp ax, bx\n");
+        cg_bool_result(b, false_jump);
+    }
+}
+
+static void cg_logical_and(BodyParser *b) {
+    cg_equality(b);
+    while (b->ok) {
+        int label;
+        body_ws(b);
+        if (strncmp(b->p, "&&", 2) != 0) break;
+        b->p += 2;
+        label = b->next_label++;
+        fprintf(b->out, "    cmp ax, 0\n");
+        fprintf(b->out, "    je .Land_false_%d\n", label);
+        cg_equality(b);
+        if (!b->ok) return;
+        fprintf(b->out, "    cmp ax, 0\n");
+        fprintf(b->out, "    je .Land_false_%d\n", label);
+        fprintf(b->out, "    mov ax, 1\n");
+        fprintf(b->out, "    jmp .Land_end_%d\n", label);
+        fprintf(b->out, ".Land_false_%d:\n", label);
+        fprintf(b->out, "    mov ax, 0\n");
+        fprintf(b->out, ".Land_end_%d:\n", label);
+    }
+}
+
+static void cg_logical_or(BodyParser *b) {
+    cg_logical_and(b);
+    while (b->ok) {
+        int label;
+        body_ws(b);
+        if (strncmp(b->p, "||", 2) != 0) break;
+        b->p += 2;
+        label = b->next_label++;
+        fprintf(b->out, "    cmp ax, 0\n");
+        fprintf(b->out, "    jne .Lor_true_%d\n", label);
+        cg_logical_and(b);
+        if (!b->ok) return;
+        fprintf(b->out, "    cmp ax, 0\n");
+        fprintf(b->out, "    jne .Lor_true_%d\n", label);
+        fprintf(b->out, "    mov ax, 0\n");
+        fprintf(b->out, "    jmp .Lor_end_%d\n", label);
+        fprintf(b->out, ".Lor_true_%d:\n", label);
+        fprintf(b->out, "    mov ax, 1\n");
+        fprintf(b->out, ".Lor_end_%d:\n", label);
+    }
+}
+
+static void cg_expr(BodyParser *b) {
+    cg_logical_or(b);
+}
+
+static int count_local_slots(const char *body) {
+    const char *p = body;
+    int slots = 0;
+    while (*p) {
+        int is_char_kw = 0;
+        if (!strncmp(p, "struct", 6) && !(isalnum((unsigned char)p[6]) || p[6] == '_') &&
+            (p == body || !(isalnum((unsigned char)p[-1]) || p[-1] == '_'))) {
+            const char *q = p + 6; char sname[64]; size_t sn = 0; int sid;
+            while (isspace((unsigned char)*q)) q++;
+            while ((isalnum((unsigned char)*q) || *q == '_') && sn + 1 < sizeof(sname)) sname[sn++] = *q++;
+            sname[sn] = 0; sid = struct_find(sname);
+            while (isspace((unsigned char)*q)) q++;
+            if (sid >= 0) {
+                int pd = 0;
+                while (*q == '*') { pd++; q++; while (isspace((unsigned char)*q)) q++; }
+                if ((isalpha((unsigned char)*q) || *q == '_'))
+                    slots += pd ? 1 : (g_structs[sid].size_bytes + 1) / 2;
+            }
+        }
+        if ((!strncmp(p, "int", 3) || (is_char_kw = !strncmp(p, "char", 4))) &&
+            (p == body || !(isalnum((unsigned char)p[-1]) || p[-1] == '_'))) {
+            int kwlen = is_char_kw ? 4 : 3;
+            if (isspace((unsigned char)p[kwlen])) {
+                const char *q = p + kwlen;
+                int pointer_depth = 0;
+                char *end = NULL;
+                long n;
+                while (isspace((unsigned char)*q)) q++;
+                while (*q == '*') { pointer_depth++; q++; while (isspace((unsigned char)*q)) q++; }
+                if (isalpha((unsigned char)*q) || *q == '_') {
+                    q++; while (isalnum((unsigned char)*q) || *q == '_') q++;
+                    while (isspace((unsigned char)*q)) q++;
+                    if (*q == '[') {
+                        q++; while (isspace((unsigned char)*q)) q++;
+                        errno = 0; n = strtol(q, &end, 0);
+                        if (end != q && !errno && n > 0 && n <= MAX_LOCALS)
+                            slots += (is_char_kw && pointer_depth == 0) ? ((int)n + 1) / 2 : (int)n;
+                        else slots++;
+                    } else slots++;
+                }
+            }
+        }
+        p++;
+    }
+    return slots;
+}
+
+static void cg_statement(BodyParser *b, int *saw_return);
+
+static void cg_block(BodyParser *b, int *saw_return) {
+    body_ws(b);
+    if (*b->p != '{') { b->ok = 0; return; }
+    b->p++;
+    scope_enter(b);
+    if (!b->ok) return;
+    while (b->ok) {
+        body_ws(b);
+        if (*b->p == '}') {
+            b->p++;
+            scope_leave(b);
+            return;
+        }
+        if (*b->p == '\0') { b->ok = 0; return; }
+        cg_statement(b, saw_return);
+    }
+}
+
+static void cg_statement(BodyParser *b, int *saw_return) {
+    char name[64];
+    int idx;
+
+    body_ws(b);
+    if (*b->p == '{') {
+        cg_block(b, saw_return);
+        return;
+    }
+
+    if (body_kw(b, "for")) {
+        int label = b->next_label++;
+        char incbuf[512];
+        size_t incn = 0;
+        const char *incstart;
+        BodyParser t;
+        int dummy_return = 0;
+
+        if (b->loop_depth >= 32) { b->ok = 0; return; }
+        /* C gives a for-init declaration a scope spanning condition,
+         * increment, and body, ending with the for statement. */
+        scope_enter(b);
+        if (!b->ok) return;
+        body_ws(b);
+        if (*b->p != '(') { b->ok = 0; return; }
+        b->p++;
+        body_ws(b);
+
+        /* initializer: declaration, assignment, or empty */
+        if (*b->p != ';') {
+            cg_statement(b, saw_return);
+            if (!b->ok) return;
+        } else {
+            b->p++;
+        }
+
+        fprintf(b->out, ".Lfor_cond_%d:\n", label);
+        body_ws(b);
+        if (*b->p != ';') {
+            cg_expr(b);
+            body_ws(b);
+            if (!b->ok || *b->p != ';') { b->ok = 0; return; }
+            b->p++;
+            fprintf(b->out, "    cmp ax, 0\n");
+            fprintf(b->out, "    jne .Lfor_body_%d\n", label);
+            fprintf(b->out, "    jmp .Lfor_end_%d\n", label);
+            fprintf(b->out, ".Lfor_body_%d:\n", label);
+        } else {
+            b->p++;
+        }
+
+        /* Save the increment clause. It is emitted after the body. */
+        body_ws(b);
+        incstart = b->p;
+        while (*b->p && *b->p != ')') b->p++;
+        if (*b->p != ')') { b->ok = 0; return; }
+        incn = (size_t)(b->p - incstart);
+        if (incn + 2 > sizeof(incbuf)) { b->ok = 0; return; }
+        memcpy(incbuf, incstart, incn);
+        incbuf[incn] = ';';
+        incbuf[incn + 1] = '\0';
+        b->p++;
+
+        b->break_label[b->loop_depth] = label;
+        b->continue_label[b->loop_depth] = label;
+        b->loop_kind[b->loop_depth] = 1;
+        b->loop_depth++;
+        cg_statement(b, saw_return);
+        b->loop_depth--;
+        if (!b->ok) return;
+
+        fprintf(b->out, ".Lfor_continue_%d:\n", label);
+        if (incn != 0) {
+            t = *b;
+            t.p = incbuf;
+            t.ok = 1;
+            cg_statement(&t, &dummy_return);
+            body_ws(&t);
+            if (!t.ok || *t.p != '\0') { b->ok = 0; return; }
+            b->next_label = t.next_label;
+        }
+        fprintf(b->out, "    jmp .Lfor_cond_%d\n", label);
+        fprintf(b->out, ".Lfor_end_%d:\n", label);
+        scope_leave(b);
+        return;
+    }
+
+    if (body_kw(b, "while")) {
+        int label = b->next_label++;
+        if (b->loop_depth >= 32) { b->ok = 0; return; }
+        body_ws(b);
+        if (*b->p != '(') { b->ok = 0; return; }
+        b->p++;
+        fprintf(b->out, ".Lwhile_cond_%d:\n", label);
+        cg_expr(b);
+        body_ws(b);
+        if (!b->ok || *b->p != ')') { b->ok = 0; return; }
+        b->p++;
+        fprintf(b->out, "    cmp ax, 0\n");
+        fprintf(b->out, "    jne .Lwhile_body_%d\n", label);
+        fprintf(b->out, "    jmp .Lwhile_end_%d\n", label);
+        fprintf(b->out, ".Lwhile_body_%d:\n", label);
+        b->break_label[b->loop_depth] = label;
+        b->continue_label[b->loop_depth] = label;
+        b->loop_kind[b->loop_depth] = 0;
+        b->loop_depth++;
+        cg_statement(b, saw_return);
+        b->loop_depth--;
+        if (!b->ok) return;
+        fprintf(b->out, "    jmp .Lwhile_cond_%d\n", label);
+        fprintf(b->out, ".Lwhile_end_%d:\n", label);
+        return;
+    }
+
+    if (body_kw(b, "break")) {
+        int label;
+        if (b->loop_depth <= 0) { b->ok = 0; return; }
+        body_ws(b);
+        if (*b->p != ';') { b->ok = 0; return; }
+        b->p++;
+        label = b->break_label[b->loop_depth - 1];
+        if (b->loop_kind[b->loop_depth - 1])
+            fprintf(b->out, "    jmp .Lfor_end_%d\n", label);
+        else
+            fprintf(b->out, "    jmp .Lwhile_end_%d\n", label);
+        return;
+    }
+
+    if (body_kw(b, "continue")) {
+        int label;
+        if (b->loop_depth <= 0) { b->ok = 0; return; }
+        body_ws(b);
+        if (*b->p != ';') { b->ok = 0; return; }
+        b->p++;
+        label = b->continue_label[b->loop_depth - 1];
+        if (b->loop_kind[b->loop_depth - 1])
+            fprintf(b->out, "    jmp .Lfor_continue_%d\n", label);
+        else
+            fprintf(b->out, "    jmp .Lwhile_cond_%d\n", label);
+        return;
+    }
+
+    if (body_kw(b, "if")) {
+        int label = b->next_label++;
+        int has_else;
+        body_ws(b);
+        if (*b->p != '(') { b->ok = 0; return; }
+        b->p++;
+        cg_expr(b);
+        body_ws(b);
+        if (!b->ok || *b->p != ')') { b->ok = 0; return; }
+        b->p++;
+        fprintf(b->out, "    cmp ax, 0\n");
+        fprintf(b->out, "    jne .Lif_body_%d\n", label);
+        fprintf(b->out, "    jmp .Lif_else_%d\n", label);
+        fprintf(b->out, ".Lif_body_%d:\n", label);
+        cg_statement(b, saw_return);
+        if (!b->ok) return;
+        body_ws(b);
+        has_else = body_kw(b, "else");
+        if (has_else) {
+            fprintf(b->out, "    jmp .Lif_end_%d\n", label);
+            fprintf(b->out, ".Lif_else_%d:\n", label);
+            cg_statement(b, saw_return);
+            if (!b->ok) return;
+            fprintf(b->out, ".Lif_end_%d:\n", label);
+        } else {
+            fprintf(b->out, ".Lif_else_%d:\n", label);
+        }
+        return;
+    }
+
+    if (body_kw(b, "return")) {
+        cg_expr(b);
+        body_ws(b);
+        if (*b->p != ';') { b->ok = 0; return; }
+        b->p++;
+        *saw_return = 1;
+        fprintf(b->out, "    jmp %s\n", b->return_label[0] ? b->return_label : ".Lreturn");
+        return;
+    }
+
+    if (body_kw(b, "struct")) {
+        char sname[64];
+        int sid, pointer_depth = 0;
+        if (!body_ident(b, sname, sizeof(sname))) { b->ok = 0; return; }
+        sid = struct_find(sname);
+        if (sid < 0) { b->ok = 0; return; }
+        body_ws(b);
+        while (*b->p == '*') { pointer_depth++; b->p++; body_ws(b); }
+        if (pointer_depth > 1) { b->ok = 0; return; }
+        if (!body_ident(b, name, sizeof(name))) { b->ok = 0; return; }
+        idx = pointer_depth ? local_add_struct_pointer(b, name, sid) : local_add_struct(b, name, sid);
+        if (idx < 0) return;
+        body_ws(b);
+        if (*b->p == '=') {
+            if (!pointer_depth) { b->ok = 0; return; }
+            b->p++;
+            cg_expr(b);
+            if (!b->ok || b->expr_is_pointer != 1 || b->expr_struct_id != sid) { b->ok = 0; return; }
+            emit_bp_store(b->out, b->locals[idx].offset);
+            body_ws(b);
+        }
+        if (*b->p != ';') { b->ok = 0; return; }
+        b->p++;
+        return;
+    }
+
+    {
+        int is_char_decl = 0;
+        if (body_kw(b, "int") || (is_char_decl = body_kw(b, "char"))) {
+        int is_pointer = 0;
+        body_ws(b);
+        while (*b->p == '*') { is_pointer++; b->p++; body_ws(b); }
+        if (is_pointer > 2) { b->ok = 0; return; }
+        if (!body_ident(b, name, sizeof(name))) { b->ok = 0; return; }
+        body_ws(b);
+        if (*b->p == '[') {
+            char *end = NULL;
+            long n;
+            if (is_pointer > 1) { b->ok = 0; return; }
+            b->p++; body_ws(b);
+            errno = 0; n = strtol(b->p, &end, 0);
+            if (end == b->p || errno || n <= 0 || n > MAX_LOCALS) { b->ok = 0; return; }
+            b->p = end; body_ws(b);
+            if (*b->p != ']') { b->ok = 0; return; }
+            b->p++;
+            idx = local_add_array(b, name, (int)n, is_char_decl, is_pointer);
+            if (idx < 0) return;
+            body_ws(b);
+            if (*b->p == '=') { b->ok = 0; return; }
+        } else {
+            idx = local_add_typed(b, name, is_pointer, is_char_decl);
+            if (idx < 0) return;
+        }
+        body_ws(b);
+        if (*b->p == '=') {
+            b->p++;
+            cg_expr(b);
+            if (!b->ok || b->expr_is_pointer != b->locals[idx].is_pointer ||
+                (b->locals[idx].is_pointer && b->expr_pointer_char != b->locals[idx].is_char)) { b->ok = 0; return; }
+            if (b->locals[idx].is_char && !b->locals[idx].is_pointer) emit_bp_store_char(b->out, b->locals[idx].offset);
+            else emit_bp_store(b->out, b->locals[idx].offset);
+        }
+        body_ws(b);
+        if (*b->p != ';') { b->ok = 0; return; }
+        b->p++;
+        return;
+        }
+    }
+
+    body_ws(b);
+    /* A named local is still an lvalue, but its storage is known at compile
+     * time.  Keep the compact BP-relative store so Phase 4B does not inflate
+     * old loop bodies enough to disturb 8086 short-branch ranges. */
+    {
+        const char *lhs_start = b->p;
+        if (body_ident(b, name, sizeof(name))) {
+            idx = local_find(b, name);
+            if (idx < 0) { b->ok = 0; return; }
+            body_ws(b);
+            if (*b->p == '[' || *b->p == '.' || !strncmp(b->p, "->", 2)) {
+                /* Computed/indexed/member lvalues use the generic address path below. */
+                b->p = lhs_start;
+                b->ok = 1;
+            } else {
+                if (*b->p != '=' || b->locals[idx].array_len > 0 || (b->locals[idx].struct_id >= 0 && b->locals[idx].is_pointer == 0)) { b->ok = 0; return; }
+                b->p++;
+                cg_expr(b);
+                if (!b->ok || b->expr_is_pointer != b->locals[idx].is_pointer ||
+                    (b->locals[idx].is_pointer && b->expr_pointer_char != b->locals[idx].is_char) ||
+                    (b->locals[idx].struct_id >= 0 && b->expr_struct_id != b->locals[idx].struct_id)) { b->ok = 0; return; }
+                if (b->locals[idx].is_char && !b->locals[idx].is_pointer) emit_bp_store_char(b->out, b->locals[idx].offset);
+                else emit_bp_store(b->out, b->locals[idx].offset);
+                body_ws(b);
+                if (*b->p != ';') { b->ok = 0; return; }
+                b->p++;
+                return;
+            }
+        }
+        b->p = lhs_start;
+        b->ok = 1;
+    }
+
+    {
+        int lv_is_pointer = 0, lv_is_char = 0, lv_struct_id = -1;
+        if (cg_lvalue_address(b, &lv_is_pointer, &lv_is_char, &lv_struct_id)) {
+            fprintf(b->out, "    push ax\n");
+            body_ws(b);
+            if (*b->p != '=') { b->ok = 0; return; }
+            b->p++;
+            cg_expr(b);
+            if (!b->ok || b->expr_is_pointer != lv_is_pointer ||
+                (lv_is_pointer && b->expr_pointer_char != lv_is_char) ||
+                (lv_struct_id >= 0 && b->expr_struct_id != lv_struct_id)) { b->ok = 0; return; }
+            fprintf(b->out, "    pop bx\n");
+            if (lv_is_char && !lv_is_pointer) fprintf(b->out, "    mov [bx], al\n");
+            else fprintf(b->out, "    mov [bx], ax\n");
+            body_ws(b);
+            if (*b->p != ';') { b->ok = 0; return; }
+            b->p++;
+            return;
+        }
+    }
+
+    b->ok = 0;
+}
+
+static int emit_locals_program(FILE *out, const char *input, const char *body) {
+    BodyParser b;
+    int frame = count_local_slots(body) * 2;
+    int saw_return = 0;
+
+    g_string_count = 0;
+    memset(&b, 0, sizeof(b));
+    b.expr_struct_id = -1;
+    b.p = body;
+    b.ok = 1;
+    b.out = out;
+
+    fprintf(out, "; generated by x86-cc %s from %s\n", X86CC_VERSION, input);
+    fprintf(out, "cpu 8086\nbits 16\norg 0x1000\n\n_start:\n");
+    fprintf(out, "    push bp\n    mov bp, sp\n");
+    { int i; for (i = 0; i < frame / 2; i++) fprintf(out, "    push ax\n"); }
+
+    while (b.ok) {
+        body_ws(&b);
+        if (*b.p == '}') break;
+        if (*b.p == '\0') { b.ok = 0; break; }
+        cg_statement(&b, &saw_return);
+    }
+
+    if (!b.ok || !saw_return || b.total_locals != frame / 2) {
+        fprintf(stderr, "x86-cc: error: invalid Phase 5B statement or expression\n");
+        return 0;
+    }
+    fprintf(out, ".Lreturn:\n");
+    fprintf(out, "    mov sp, bp\n    pop bp\n    hlt\n");
+    emit_string_pool(out);
+    return 1;
+}
+
+
+typedef struct {
+    char name[64];
+    char params[8][64];
+    int param_is_pointer[8];
+    int param_is_char[8];
+    int nparams;
+    int is_definition;
+    const char *body_start;
+    const char *body_end;
+} FunctionDecl;
+
+/* Phase 3D introduces a tiny function-symbol pass.  A translation unit may
+ * contain compatible prototypes and one definition for a function.  Since
+ * the current compiler still emits one standalone flat image, any function
+ * that is actually called must also have a definition in this translation
+ * unit; separate-object resolution arrives with later ELF/linker work. */
+static int scan_function_decls(const char *src, FunctionDecl *f, int maxf) {
+    const char *p = src;
+    int n = 0;
+    while (*p) {
+        char name[64];
+        char parsed_params[8][64] = {{0}};
+        int parsed_param_pointer[8] = {0};
+        int parsed_param_char[8] = {0};
+        size_t nn = 0;
+        const char *q;
+        int np = 0, is_def = 0;
+
+        while (isspace((unsigned char)*p)) p++;
+        if (!strncmp(p, "struct", 6) && !(isalnum((unsigned char)p[6]) || p[6] == '_')) {
+            const char *sq = p + 6;
+            while (isspace((unsigned char)*sq)) sq++;
+            while (isalnum((unsigned char)*sq) || *sq == '_') sq++;
+            while (isspace((unsigned char)*sq)) sq++;
+            if (*sq == '{') {
+                int depth = 1; sq++;
+                while (*sq && depth) { if (*sq == '{') depth++; else if (*sq == '}') depth--; sq++; }
+                while (isspace((unsigned char)*sq)) sq++;
+                if (*sq == ';') sq++;
+                p = sq;
+                continue;
+            }
+        }
+        if (strncmp(p, "int", 3) || !isspace((unsigned char)p[3])) { p++; continue; }
+        q = p + 3;
+        while (isspace((unsigned char)*q)) q++;
+        if (!(isalpha((unsigned char)*q) || *q == '_')) { p++; continue; }
+        while ((isalnum((unsigned char)*q) || *q == '_') && nn + 1 < sizeof(name))
+            name[nn++] = *q++;
+        name[nn] = 0;
+        while (isspace((unsigned char)*q)) q++;
+        if (*q++ != '(') { p++; continue; }
+        while (isspace((unsigned char)*q)) q++;
+
+        if (!strncmp(q, "void", 4) && !(isalnum((unsigned char)q[4]) || q[4] == '_')) {
+            q += 4;
+            while (isspace((unsigned char)*q)) q++;
+        } else if (*q != ')') {
+            for (;;) {
+                size_t pn = 0;
+                if (!strncmp(q, "int", 3) && (isspace((unsigned char)q[3]) || q[3] == '*' || q[3] == ',' || q[3] == ')')) {
+                    q += 3;
+                } else if (!strncmp(q, "char", 4) && (isspace((unsigned char)q[4]) || q[4] == '*' || q[4] == ',' || q[4] == ')')) {
+                    parsed_param_char[np] = 1;
+                    q += 4;
+                } else return -1;
+                while (isspace((unsigned char)*q)) q++;
+                while (*q == '*') {
+                    parsed_param_pointer[np]++;
+                    q++;
+                    while (isspace((unsigned char)*q)) q++;
+                }
+                if (parsed_param_pointer[np] > 2) return -1;
+                if (isalpha((unsigned char)*q) || *q == '_') {
+                    while ((isalnum((unsigned char)*q) || *q == '_') && pn + 1 < sizeof(parsed_params[0]))
+                        parsed_params[np][pn++] = *q++;
+                    parsed_params[np][pn] = 0;
+                }
+                if (np >= 8) return -1;
+                if (parsed_params[np][0]) {
+                    int k;
+                    for (k = 0; k < np; k++)
+                        if (parsed_params[k][0] && !strcmp(parsed_params[k], parsed_params[np])) return -1;
+                }
+                np++;
+                while (isspace((unsigned char)*q)) q++;
+                if (*q == ',') {
+                    q++;
+                    while (isspace((unsigned char)*q)) q++;
+                    continue;
+                }
+                break;
+            }
+        }
+        if (*q++ != ')') return -1;
+        while (isspace((unsigned char)*q)) q++;
+        if (*q == '{') is_def = 1;
+        else if (*q == ';') is_def = 0;
+        else return -1;
+
+        if (n >= maxf) return -1;
+        {
+            int k;
+            for (k = 0; k < n; k++) {
+                if (!strcmp(f[k].name, name)) {
+                    int t;
+                    if (f[k].nparams != np) return -1;
+                    for (t = 0; t < np; t++)
+                        if (f[k].param_is_pointer[t] != parsed_param_pointer[t] ||
+                            f[k].param_is_char[t] != parsed_param_char[t]) return -1;
+                    if (is_def && f[k].is_definition) return -1;
+                }
+            }
+        }
+        snprintf(f[n].name, sizeof(f[n].name), "%s", name);
+        f[n].nparams = np;
+        f[n].is_definition = is_def;
+        {
+            int k;
+            for (k = 0; k < np; k++) {
+                snprintf(f[n].params[k], sizeof(f[n].params[k]), "%.63s", parsed_params[k]);
+                f[n].param_is_pointer[k] = parsed_param_pointer[k];
+                f[n].param_is_char[k] = parsed_param_char[k];
+            }
+        }
+
+        if (is_def) {
+            const char *bs;
+            int depth = 1;
+            int k;
+            /* A function definition needs names for each parameter so the
+             * body can refer to the parameter objects. */
+            for (k = 0; k < np; k++) if (!f[n].params[k][0]) return -1;
+            bs = ++q;
+            while (*q && depth) {
+                if (*q == '{') depth++;
+                else if (*q == '}') depth--;
+                q++;
+            }
+            if (depth) return -1;
+            f[n].body_start = bs;
+            f[n].body_end = q - 1;
+            n++;
+            p = q;
+        } else {
+            f[n].body_start = NULL;
+            f[n].body_end = NULL;
+            n++;
+            p = q + 1;
+        }
+    }
+    return n;
+}
+
+static int emit_functions_program(FILE *out, const char *input, const char *src) {
+    FunctionDecl decls[64];
+    FunctionDecl defs[32];
+    int nd, ndefs = 0, i, j, have_main = 0;
+
+    g_string_count = 0;
+    nd = scan_function_decls(src, decls, 64);
+    if (nd < 0) return 0;
+
+    g_function_count = 0;
+    for (i = 0; i < nd; i++) {
+        int sym = -1;
+        for (j = 0; j < g_function_count; j++)
+            if (!strcmp(g_function_names[j], decls[i].name)) { sym = j; break; }
+        if (sym < 0) {
+            if (g_function_count >= 32) return 0;
+            sym = g_function_count++;
+            snprintf(g_function_names[sym], sizeof(g_function_names[sym]), "%.63s", decls[i].name);
+            g_function_arity[sym] = decls[i].nparams;
+            g_function_defined[sym] = 0;
+            for (j = 0; j < decls[i].nparams; j++) {
+                g_function_param_pointer[sym][j] = decls[i].param_is_pointer[j];
+                g_function_param_char[sym][j] = decls[i].param_is_char[j];
+            }
+        }
+        if (decls[i].is_definition) {
+            g_function_defined[sym] = 1;
+            defs[ndefs++] = decls[i];
+            if (!strcmp(decls[i].name, "main")) {
+                have_main = 1;
+                if (decls[i].nparams != 0) return 0;
+            }
+        }
+    }
+    if (!have_main) return 0;
+
+    fprintf(out, "; generated by x86-cc %s from %s\n", X86CC_VERSION, input);
+    if (g_blackjack_target)
+        fprintf(out, "cpu 8086\nbits 16\norg 0\n\n_start:\n    call main\n    mov bx, ax\n    mov ax, 2\n    int 0x60\n.Lhalt:\n    jmp .Lhalt\n\n");
+    else
+        fprintf(out, "cpu 8086\nbits 16\norg 0x1000\n\n_start:\n    call main\n    hlt\n\n");
+
+    for (i = 0; i < ndefs; i++) {
+        size_t len = (size_t)(defs[i].body_end - defs[i].body_start);
+        char *body = (char *)malloc(len + 2);
+        BodyParser b;
+        int saw = 0, frame;
+        if (!body) return 0;
+        memcpy(body, defs[i].body_start, len);
+        body[len] = '}';
+        body[len + 1] = 0;
+        frame = count_local_slots(body) * 2;
+        memset(&b, 0, sizeof(b));
+        b.p = body;
+        b.ok = 1;
+        b.out = out;
+        b.next_label = i * 1000;
+        for (j = 0; j < defs[i].nparams; j++) {
+            snprintf(b.locals[j].name, sizeof(b.locals[j].name), "%s", defs[i].params[j]);
+            b.locals[j].offset = 4 + 2 * (defs[i].nparams - 1 - j);
+            b.locals[j].is_pointer = defs[i].param_is_pointer[j];
+            b.locals[j].is_char = defs[i].param_is_char[j];
+            b.locals[j].array_len = 0;
+            b.locals[j].struct_id = -1;
+        }
+        b.nlocals = defs[i].nparams;
+        snprintf(b.return_label, sizeof(b.return_label), ".Lreturn_%.63s", defs[i].name);
+        fprintf(out, "%s:\n    push bp\n    mov bp, sp\n", defs[i].name);
+        for (j = 0; j < frame / 2; j++) fprintf(out, "    push ax\n");
+        while (b.ok) {
+            body_ws(&b);
+            if (*b.p == '}') break;
+            if (!*b.p) { b.ok = 0; break; }
+            cg_statement(&b, &saw);
+        }
+        if (!b.ok || !saw || b.total_locals != frame / 2) {
+            free(body);
+            fprintf(stderr, "x86-cc: error: invalid Phase 5A function body\n");
+            return 0;
+        }
+        fprintf(out, "%s:\n    mov sp, bp\n    pop bp\n    ret\n\n", b.return_label);
+        free(body);
+    }
+    if (g_blackjack_target) {
+        fprintf(out, "; Blackjack userspace runtime\n");
+        fprintf(out, "bj_write:\n    push bp\n    mov bp, sp\n    mov si, [bp+4]\n    mov bx, 1\n    mov ax, 1\n    int 0x60\n    xor ax, ax\n    mov sp, bp\n    pop bp\n    ret\n\n");
+        fprintf(out, "bj_mem_kb:\n    mov ax, 11\n    int 0x60\n    ret\n\n");
+        fprintf(out, "bj_mem_used_kb:\n    mov ax, 17\n    int 0x60\n    ret\n\n");
+        fprintf(out, "bj_shutdown:\n    mov ax, 12\n    int 0x60\n    xor ax, ax\n    ret\n\n");
+        fprintf(out, "bj_date:\n    mov ax, 13\n    int 0x60\n    mov ax, cx\n    ret\n\n");
+        fprintf(out, "bj_time:\n    mov ax, 14\n    int 0x60\n    mov ax, cx\n    ret\n\n");
+        fprintf(out, "bj_date_md:\n    mov ax, 13\n    int 0x60\n    mov ax, dx\n    ret\n\n");
+        fprintf(out, "bj_time_sec:\n    mov ax, 14\n    int 0x60\n    mov ax, dx\n    mov al, ah\n    xor ah, ah\n    ret\n\n");
+        fprintf(out, "bj_args:\n    mov ax, 0xF000\n    ret\n\n");
+        fprintf(out, "bj_sleep_ms:\n    push bp\n    mov bp, sp\n    mov bx, [bp+4]\n    mov ax, 15\n    int 0x60\n    mov sp, bp\n    pop bp\n    ret\n\n");
+        fprintf(out, "bj_open:\n    push bp\n    mov bp, sp\n    mov si, [bp+4]\n    xor bx, bx\n    mov ax, 5\n    int 0x60\n    mov sp, bp\n    pop bp\n    ret\n\n");
+        fprintf(out, "bj_read:\n    push bp\n    mov bp, sp\n    mov bx, [bp+8]\n    mov di, [bp+6]\n    mov cx, [bp+4]\n    mov ax, 6\n    int 0x60\n    mov sp, bp\n    pop bp\n    ret\n\n");
+        fprintf(out, "bj_close:\n    push bp\n    mov bp, sp\n    mov bx, [bp+4]\n    mov ax, 7\n    int 0x60\n    mov sp, bp\n    pop bp\n    ret\n\n");
+        fprintf(out, "bj_file_save:\n    push bp\n    mov bp, sp\n    mov bx, [bp+8]\n    mov si, [bp+6]\n    mov cx, [bp+4]\n    mov ax, 16\n    int 0x60\n    mov sp, bp\n    pop bp\n    ret\n\n");
+        fprintf(out, "bj_create:\n    push bp\n    mov bp, sp\n    mov si, [bp+4]\n    mov ax, 18\n    int 0x60\n    mov sp, bp\n    pop bp\n    ret\n\n");
+        fprintf(out, "bj_getch:\n    sub sp, 2\n    mov di, sp\n    xor bx, bx\n    mov cx, 1\n    mov ax, 6\n    int 0x60\n    xor ax, ax\n    mov al, [ss:di]\n    add sp, 2\n    ret\n\n");
+    }
+    emit_string_pool(out);
+    return 1;
+}
+
+static int source_has_logical_operator(const char *src) {
+    const char *p;
+    if (strstr(src, "&&") || strstr(src, "||")) return 1;
+    for (p = src; *p; p++) {
+        if (*p == '!' && p[1] != '=') return 1;
+    }
+    return 0;
+}
+
+static int emit_asm(FILE *out, const char *input, const char *src) {
+    char expr[256];
+    int ok = 0;
+    long value;
+    const char *body;
+
+    if (!scan_struct_defs(src)) {
+        fprintf(stderr, "x86-cc: error: invalid Phase 5A struct definition\n");
+        return 0;
+    }
+
+    { FunctionDecl fd[64]; int nfd = scan_function_decls(src, fd, 64), k, defs = 0, protos = 0; if (nfd < 0) { fprintf(stderr, "x86-cc: error: invalid Phase 4H function declaration\n"); return 0; } for (k = 0; k < nfd; k++) { if (fd[k].is_definition) defs++; else protos++; } if (defs >= 2 || protos > 0) return emit_functions_program(out, input, src); }
+
+    if (!strstr(src, "int main(")) {
+        fprintf(stderr, "x86-cc: error: v%s requires int main(...)\n", X86CC_VERSION);
+        return 0;
+    }
+
+    body = strstr(src, "int main(");
+    if (body) body = strchr(body, '{');
+    if (!body) {
+        fprintf(stderr, "x86-cc: error: missing function body\n");
+        return 0;
+    }
+    body++;
+
+    /* Phase 1C+ stack-backed/statement path. Phase 2B routes control flow here
+     * even when no local declaration is present. */
+    if (((strstr(body, "int ") && strstr(body, "int ") < strchr(body, '}')) ||
+         (strstr(body, "char ") && strstr(body, "char ") < strchr(body, '}')) ||
+         (strstr(body, "struct ") && strstr(body, "struct ") < strchr(body, '}'))) ||
+        strstr(body, "if") || strstr(body, "while") || strstr(body, "for") ||
+        strstr(body, "break") || strstr(body, "continue") ||
+        source_has_logical_operator(body))
+        return emit_locals_program(out, input, body);
+
+    /* Preserve Phase 0/1A/1B constant-only output byte-for-byte. */
+    if (!find_return_expr(src, expr, sizeof(expr))) {
+        fprintf(stderr, "x86-cc: error: v%s requires a return expression\n", X86CC_VERSION);
+        return 0;
+    }
+    value = parse_return_expression(expr, &ok);
+    if (!ok || value < -32768 || value > 65535) {
+        fprintf(stderr,
+                "x86-cc: error: v%s return expression supports constant arithmetic, relational, and equality expressions\n",
+                X86CC_VERSION);
+        return 0;
+    }
+    fprintf(out, "; generated by x86-cc %s from %s\n", X86CC_VERSION, input);
+    fprintf(out, "cpu 8086\nbits 16\norg 0x1000\n\n_start:\n");
+    fprintf(out, "    mov ax, 0x%04lX\n", value & 0xFFFFL);
+    fprintf(out, "    hlt\n");
+    return 1;
+}
+
+static void usage(FILE *f) {
+    fprintf(f,
+        "x86-cc %s\n"
+        "usage: x86-cc [-S] [--blackjack] input.c -o output\n"
+        "       x86-cc --version\n"
+        "\n"
+        "v%s is the Phase 5A compiler seed. AX is the return-value register.\n"
+        "Without -S, x86-as must be available in PATH.\n",
+        X86CC_VERSION, X86CC_VERSION);
+}
+
+int main(int argc, char **argv) {
+    const char *input = NULL;
+    const char *output = NULL;
+    int emit_only = 0;
+    int i;
+    char *src = NULL;
+    char tmp_path[1024] = {0};
+    FILE *out = NULL;
+    int rc = 1;
+
+    if (argc == 2 && (!strcmp(argv[1], "--version") || !strcmp(argv[1], "-v"))) {
+        printf("x86-cc %s\n", X86CC_VERSION);
+        return 0;
+    }
+    if (argc == 2 && (!strcmp(argv[1], "--help") || !strcmp(argv[1], "-h"))) {
+        usage(stdout);
+        return 0;
+    }
+
+    for (i = 1; i < argc; i++) {
+        if (!strcmp(argv[i], "-S")) {
+            emit_only = 1;
+        } else if (!strcmp(argv[i], "--blackjack")) {
+            g_blackjack_target = 1;
+        } else if (!strcmp(argv[i], "-o")) {
+            if (++i >= argc) { usage(stderr); return 2; }
+            output = argv[i];
+        } else if (argv[i][0] == '-') {
+            fprintf(stderr, "x86-cc: error: unsupported option: %s\n", argv[i]);
+            return 2;
+        } else if (!input) {
+            input = argv[i];
+        } else {
+            fprintf(stderr, "x86-cc: error: only one input file is supported\n");
+            return 2;
+        }
+    }
+
+    if (!input || !output) {
+        usage(stderr);
+        return 2;
+    }
+
+    src = read_file(input);
+    if (!src) {
+        fprintf(stderr, "x86-cc: error: cannot read %s\n", input);
+        goto done;
+    }
+    compact_ws(src);
+
+    if (emit_only) {
+        out = fopen(output, "wb");
+        if (!out) {
+            fprintf(stderr, "x86-cc: error: cannot create %s\n", output);
+            goto done;
+        }
+        if (!emit_asm(out, input, src)) goto done;
+        if (fclose(out) != 0) { out = NULL; goto done; }
+        out = NULL;
+        printf("compiled %s -> %s (assembly)\n", input, output);
+        rc = 0;
+        goto done;
+    }
+
+    snprintf(tmp_path, sizeof(tmp_path), "%s.x86cc.asm", output);
+    out = fopen(tmp_path, "wb");
+    if (!out) {
+        fprintf(stderr, "x86-cc: error: cannot create temporary assembly\n");
+        goto done;
+    }
+    if (!emit_asm(out, input, src)) goto done;
+    if (fclose(out) != 0) { out = NULL; goto done; }
+    out = NULL;
+
+    {
+        char cmd[4096];
+        int status;
+        snprintf(cmd, sizeof(cmd), "x86-as -f bin \"%s\" -o \"%s\"", tmp_path, output);
+        status = system(cmd);
+        if (status != 0) {
+            fprintf(stderr, "x86-cc: error: x86-as failed\n");
+            goto done;
+        }
+    }
+    remove(tmp_path);
+    printf("compiled %s -> %s\n", input, output);
+    rc = 0;
+
+done:
+    if (out) fclose(out);
+    if (rc != 0 && !emit_only && tmp_path[0]) remove(tmp_path);
+    free(src);
+    return rc;
+}

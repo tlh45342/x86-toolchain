@@ -1,0 +1,9 @@
+cli
+cld
+xor ax, ax
+mov cx, 0x0003
+rep movsw
+std
+movsb
+sti
+hlt

@@ -1,0 +1,4 @@
+jmp ax
+jmp bx
+jmp si
+jmp [bp+0x5A]

@@ -1,0 +1,35 @@
+python tests/test_peephole_sprint2.py
+PASS peephole safety and elimination cases: 6
+python tests/test_peephole_production.py
+PASS production peephole positive O1 and preserved O0 baseline
+python tests/test_sprint34.py
+PASS sprint3 strength reduction and sprint4 short-circuit branches
+python tests/test_sprint56.py
+PASS sprint5 displacement and sprint6 branch
+python tests/test_optimization_gate.py
+sample,O0_binary_bytes,O1_binary_bytes,delta_bytes,O0_asm_lines,O1_asm_lines
+return42,4,4,0,8,8
+large_local_array,368,358,-10,322,317
+struct_basic,85,71,-14,50,43
+struct_typed_layout,92,74,-18,52,43
+if_true,61,54,-7,37,34
+if_else_blocks,67,58,-9,38,34
+long_if_body,580,523,-57,272,244
+logical_and_true,73,66,-7,41,38
+logical_or_false,73,66,-7,41,38
+runtime_mul_locals,43,41,-2,28,27
+array_loop,223,200,-23,123,112
+PASS optimization gate: compiled and assembled 11 samples at both levels
+python tests/test_optimization_execution.py
+PASS return42 O0/O1 AX and HLT
+PASS struct_basic O0/O1 AX and HLT
+PASS struct_typed_layout O0/O1 AX and HLT
+PASS if_true O0/O1 AX and HLT
+PASS if_else_blocks O0/O1 AX and HLT
+PASS long_if_body O0/O1 AX and HLT
+PASS logical_and_true O0/O1 AX and HLT
+PASS logical_or_false O0/O1 AX and HLT
+PASS runtime_mul_locals O0/O1 AX and HLT
+PASS array_loop O0/O1 AX and HLT
+PASS large_local_array O0/O1 AX and HLT
+PASS execution equivalence: 11 programs, both levels

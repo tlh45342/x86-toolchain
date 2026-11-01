@@ -1,0 +1,1 @@
+int open(char *path, int flags); int main(void){ return open("x",0); }

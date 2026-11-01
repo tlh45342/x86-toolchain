@@ -1,0 +1,1 @@
+int f(unsigned long lba){unsigned int low;low=(unsigned int)lba;return low;} int main(void){return 0;}\n

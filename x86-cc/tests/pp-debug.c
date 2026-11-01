@@ -1,0 +1,2 @@
+struct Bad { int **p; };
+int main(void) { return 0; }

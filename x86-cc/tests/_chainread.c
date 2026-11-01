@@ -1,0 +1,1 @@
+struct n{int x;struct n*next;};static struct n a,b;int main(void){struct n*p;p=&a;p->next=&b;b.x=35;p->x=p->next->x+7;return p->x;}

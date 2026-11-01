@@ -1,0 +1,1 @@
+int helper(void){return 0;} int main(int argc,char**argv){return argv[1][0];}

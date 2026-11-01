@@ -1,0 +1,1 @@
+struct node { int value; struct node *next; }; static struct node a; static struct node *p; int main(void){p=&a;p->value=1;p->value+=2;return p->value+39;}

@@ -1,0 +1,1 @@
+struct node { int value; struct node *next; }; static struct node a; static struct node *head; int main(void){head=&a;return 42;}

@@ -1,0 +1,4 @@
+logfile opened: tests\abiva.log
+created vm id=0 (current)
+AX=002A BX=10D9 CX=0000 DX=0000  SI=0000 DI=0000 BP=0000 SP=FFFE
+CS=0000 IP=1004 DS=0000 ES=0000 SS=0000  FLAGS=0082

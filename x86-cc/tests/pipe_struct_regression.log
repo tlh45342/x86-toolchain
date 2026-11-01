@@ -1,0 +1,83 @@
+logfile opened: O:\x86\toolchain\x86-cc\tests\pipe_struct_regression.log
+Version: 0.0.22
+created vm id=0 (current)
+trace-format set: extended
+0000:1000  E8 99 00                 call 0x109C
+0000:109C  55                       push bp
+0000:109D  89 E5                    mov bp, sp
+0000:109F  E8 62 FF                 call 0x1004
+0000:1004  55                       push bp
+0000:1005  89 E5                    mov bp, sp
+0000:1007  50                       push ax
+0000:1008  50                       push ax
+0000:1009  89 E8                    mov ax, bp
+0000:100B  83 E8 02                 sub ax, byte 0x2
+0000:100E  50                       push ax
+0000:100F  B8 02 00                 mov ax, 0x0002
+0000:1012  5B                       pop bx
+0000:1013  88 07                    mov [bx], al
+0000:1015  89 E8                    mov ax, bp
+0000:1017  83 E8 02                 sub ax, byte 0x2
+0000:101A  83 C0 01                 add ax, byte 0x1
+0000:101D  50                       push ax
+0000:101E  B8 07 00                 mov ax, 0x0007
+0000:1021  5B                       pop bx
+0000:1022  88 07                    mov [bx], al
+0000:1024  89 E8                    mov ax, bp
+0000:1026  83 E8 02                 sub ax, byte 0x2
+0000:1029  89 C6                    mov si, ax
+0000:102B  89 E8                    mov ax, bp
+0000:102D  83 E8 04                 sub ax, byte 0x4
+0000:1030  89 C3                    mov bx, ax
+0000:1032  8B 04                    mov ax, [si]
+0000:1034  89 07                    mov [bx], ax
+0000:1036  89 E8                    mov ax, bp
+0000:1038  83 E8 04                 sub ax, byte 0x4
+0000:103B  89 E8                    mov ax, bp
+0000:103D  83 E8 04                 sub ax, byte 0x4
+0000:1040  89 C3                    mov bx, ax
+0000:1042  8A 07                    mov al, [bx]
+0000:1044  B4 00                    mov ah, 0x00
+0000:1046  50                       push ax
+0000:1047  B8 02 00                 mov ax, 0x0002
+0000:104A  89 C3                    mov bx, ax
+0000:104C  58                       pop ax
+0000:104D  39 D8                    cmp ax, bx
+0000:104F  B8 00 00                 mov ax, 0x0000
+0000:1052  74 03                    jz 0x1057
+0000:1057  B8 01 00                 mov ax, 0x0001
+0000:105A  83 F8 00                 cmp ax, byte 0x0
+0000:105D  75 03                    jnz 0x1062
+0000:1062  89 E8                    mov ax, bp
+0000:1064  83 E8 04                 sub ax, byte 0x4
+0000:1067  83 C0 01                 add ax, byte 0x1
+0000:106A  89 C3                    mov bx, ax
+0000:106C  8A 07                    mov al, [bx]
+0000:106E  B4 00                    mov ah, 0x00
+0000:1070  50                       push ax
+0000:1071  B8 07 00                 mov ax, 0x0007
+0000:1074  89 C3                    mov bx, ax
+0000:1076  58                       pop ax
+0000:1077  39 D8                    cmp ax, bx
+0000:1079  B8 00 00                 mov ax, 0x0000
+0000:107C  74 03                    jz 0x1081
+0000:1081  B8 01 00                 mov ax, 0x0001
+0000:1084  83 F8 00                 cmp ax, byte 0x0
+0000:1087  75 03                    jnz 0x108C
+0000:108C  B8 01 00                 mov ax, 0x0001
+0000:108F  E9 03 00                 jmp 0x1095
+0000:1095  E9 00 00                 jmp 0x1098
+0000:1098  89 EC                    mov sp, bp
+0000:109A  5D                       pop bp
+0000:109B  C3                       ret
+0000:10A2  83 F8 00                 cmp ax, byte 0x0
+0000:10A5  75 03                    jnz 0x10AA
+0000:10AA  B8 2A 00                 mov ax, 0x002A
+0000:10AD  E9 03 00                 jmp 0x10B3
+0000:10B3  E9 00 00                 jmp 0x10B6
+0000:10B6  89 EC                    mov sp, bp
+0000:10B8  5D                       pop bp
+0000:10B9  C3                       ret
+0000:1003  F4                       hlt
+AX=002A BX=0007 CX=0000 DX=0000  SI=FFF4 DI=0000 BP=0000 SP=FFFE
+CS=0000 IP=1004 DS=0000 ES=0000 SS=0000  FLAGS=0002

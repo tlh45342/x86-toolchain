@@ -1,0 +1,67 @@
+logfile opened: O:\x86\toolchain\x86-cc\tests\function_pointer_ops_chain.log
+Version: 0.0.22
+created vm id=0 (current)
+trace-format set: extended
+0000:1000  E8 1E 00                 call 0x1021
+0000:1021  55                       push bp
+0000:1022  89 E5                    mov bp, sp
+0000:1024  50                       push ax
+0000:1025  50                       push ax
+0000:1026  50                       push ax
+0000:1027  89 E8                    mov ax, bp
+0000:1029  BB 02 00                 mov bx, 0x0002
+0000:102C  29 D8                    sub ax, bx
+0000:102E  50                       push ax
+0000:102F  B8 04 10                 mov ax, 0x1004
+0000:1032  5B                       pop bx
+0000:1033  89 07                    mov [bx], ax
+0000:1035  89 E8                    mov ax, bp
+0000:1037  BB 04 00                 mov bx, 0x0004
+0000:103A  29 D8                    sub ax, bx
+0000:103C  50                       push ax
+0000:103D  89 E8                    mov ax, bp
+0000:103F  BB 02 00                 mov bx, 0x0002
+0000:1042  29 D8                    sub ax, bx
+0000:1044  5B                       pop bx
+0000:1045  89 07                    mov [bx], ax
+0000:1047  89 E8                    mov ax, bp
+0000:1049  BB 04 00                 mov bx, 0x0004
+0000:104C  29 D8                    sub ax, bx
+0000:104E  89 46 FA                 mov [bp-0x6], ax
+0000:1051  8B 46 FA                 mov ax, [bp-0x6]
+0000:1054  89 C3                    mov bx, ax
+0000:1056  8B 07                    mov ax, [bx]
+0000:1058  8B 46 FA                 mov ax, [bp-0x6]
+0000:105B  89 C3                    mov bx, ax
+0000:105D  8B 07                    mov ax, [bx]
+0000:105F  89 C3                    mov bx, ax
+0000:1061  8B 37                    mov si, [bx]
+0000:1063  B8 16 00                 mov ax, 0x0016
+0000:1066  50                       push ax
+0000:1067  B8 14 00                 mov ax, 0x0014
+0000:106A  50                       push ax
+0000:106B  FF D6                    call si
+0000:1004  55                       push bp
+0000:1005  89 E5                    mov bp, sp
+0000:1007  89 E8                    mov ax, bp
+0000:1009  BB 04 00                 mov bx, 0x0004
+0000:100C  01 D8                    add ax, bx
+0000:100E  8B 46 04                 mov ax, [bp+0x4]
+0000:1011  50                       push ax
+0000:1012  8B 46 06                 mov ax, [bp+0x6]
+0000:1015  5B                       pop bx
+0000:1016  01 C3                    add bx, ax
+0000:1018  89 D8                    mov ax, bx
+0000:101A  E9 00 00                 jmp 0x101D
+0000:101D  89 EC                    mov sp, bp
+0000:101F  5D                       pop bp
+0000:1020  C3                       ret
+0000:106D  5B                       pop bx
+0000:106E  5B                       pop bx
+0000:106F  E9 00 00                 jmp 0x1072
+0000:1072  89 EC                    mov sp, bp
+0000:1074  5D                       pop bp
+0000:1075  C3                       ret
+0000:1003  F4                       hlt
+AX=002A BX=0016 CX=0000 DX=0000  SI=1004 DI=0000 BP=0000 SP=FFFE
+CS=0000 IP=1004 DS=0000 ES=0000 SS=0000  FLAGS=0002

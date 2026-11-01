@@ -1,0 +1,6 @@
+gcc -std=c11 -Wall -Wextra -O2 -DX86CC_DEFAULT_INCLUDEDIR=\"C:/Users/User/.local/lib/x86-cc/include\"  -o x86-cc x86-cc.c
+A subdirectory or file -p already exists.
+Error occurred while processing: -p.
+A subdirectory or file C:/Users/User/.local/bin already exists.
+Error occurred while processing: C:/Users/User/.local/bin.
+make: *** [install] Error 1

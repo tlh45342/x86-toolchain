@@ -1,0 +1,7 @@
+les bx, [bp+0x5A]
+cmpsb
+cmpsw
+repe cmpsb
+repe cmpsw
+stosw
+lodsw

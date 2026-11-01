@@ -1,0 +1,6 @@
+mov ax,0x0001
+add ax,byte 0x2
+sub ax,byte 0x1
+xor bx,bx
+or ax,bx
+hlt

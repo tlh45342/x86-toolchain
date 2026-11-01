@@ -1,0 +1,133 @@
+tests\unsigned_long_core.o: BJO1, text=249, symbols=2, relocations=2
+
+SYMBOLS
+D 1004 exercise
+D 10D9 main
+
+RELOCATIONS
+00B5 ABS16  <object-local>
+00C2 ABS16  <object-local>
+
+DISASSEMBLY
+0000  E8 D6 00           call 0x00D9
+0003  F4                 hlt
+0004  55                 push bp
+0005  89 E5              mov bp, sp
+0007  50                 push ax
+0008  50                 push ax
+0009  50                 push ax
+000A  B8 0C 00           mov ax, 0x000C
+000D  89 46 FE           mov [bp-0x2], ax
+0010  B8 78 56           mov ax, 0x5678
+0013  BA 34 12           mov dx, 0x1234
+0016  89 46 FA           mov [bp-0x6], ax
+0019  89 56 FC           mov [bp-0x4], dx
+001C  89 E8              mov ax, bp
+001E  BB 04 00           mov bx, 0x0004
+0021  01 D8              add ax, bx
+0023  8B 46 04           mov ax, [bp+0x4]
+0026  8B 56 06           mov dx, [bp+0x6]
+0029  52                 push dx
+002A  50                 push ax
+002B  B8 01 00           mov ax, 0x0001
+002E  5B                 pop bx
+002F  31 D2              xor dx, dx
+0031  5F                 pop di
+0032  01 C3              add bx, ax
+0034  11 D7              adc di, dx
+0036  89 D8              mov ax, bx
+0038  89 FA              mov dx, di
+003A  89 46 FA           mov [bp-0x6], ax
+003D  89 56 FC           mov [bp-0x4], dx
+0040  89 E8              mov ax, bp
+0042  BB 06 00           mov bx, 0x0006
+0045  29 D8              sub ax, bx
+0047  8B 46 FA           mov ax, [bp-0x6]
+004A  8B 56 FC           mov dx, [bp-0x4]
+004D  52                 push dx
+004E  50                 push ax
+004F  B8 02 00           mov ax, 0x0002
+0052  5B                 pop bx
+0053  31 D2              xor dx, dx
+0055  5F                 pop di
+0056  29 C3              sub bx, ax
+0058  19 D7              sbb di, dx
+005A  89 D8              mov ax, bx
+005C  89 FA              mov dx, di
+005E  89 46 FA           mov [bp-0x6], ax
+0061  89 56 FC           mov [bp-0x4], dx
+0064  89 E8              mov ax, bp
+0066  BB 06 00           mov bx, 0x0006
+0069  29 D8              sub ax, bx
+006B  8B 46 FA           mov ax, [bp-0x6]
+006E  8B 56 FC           mov dx, [bp-0x4]
+0071  52                 push dx
+0072  50                 push ax
+0073  B8 08 00           mov ax, 0x0008
+0076  89 C1              mov cx, ax
+0078  58                 pop ax
+0079  5A                 pop dx
+007A  83 F9 00           cmp cx, byte 0x0
+007D  74 07              jz 0x0086
+007F  D1 EA              shr dx, 1
+0081  D1                 db 0xD1
+0082  D8                 db 0xD8
+0083  49                 dec cx
+0084  75 F9              jnz 0x007F
+0086  89 46 FA           mov [bp-0x6], ax
+0089  89 56 FC           mov [bp-0x4], dx
+008C  89 E8              mov ax, bp
+008E  BB 06 00           mov bx, 0x0006
+0091  29 D8              sub ax, bx
+0093  8B 46 FA           mov ax, [bp-0x6]
+0096  8B 56 FC           mov dx, [bp-0x4]
+0099  52                 push dx
+009A  50                 push ax
+009B  B8 03 00           mov ax, 0x0003
+009E  89 C1              mov cx, ax
+00A0  58                 pop ax
+00A1  5A                 pop dx
+00A2  83 F9 00           cmp cx, byte 0x0
+00A5  74 07              jz 0x00AE
+00A7  D1 E0              shl ax, 1
+00A9  D1                 db 0xD1
+00AA  D2                 db 0xD2
+00AB  49                 dec cx
+00AC  75 F9              jnz 0x00A7
+00AE  89 46 FA           mov [bp-0x6], ax
+00B1  89 56 FC           mov [bp-0x4], dx
+00B4  B8 F7 10           mov ax, 0x10F7
+00B7  50                 push ax
+00B8  8B 46 FA           mov ax, [bp-0x6]
+00BB  8B 56 FC           mov dx, [bp-0x4]
+00BE  5B                 pop bx
+00BF  89 07              mov [bx], ax
+00C1  B8 F3 10           mov ax, 0x10F3
+00C4  50                 push ax
+00C5  89 E8              mov ax, bp
+00C7  BB 06 00           mov bx, 0x0006
+00CA  29 D8              sub ax, bx
+00CC  8B 46 FA           mov ax, [bp-0x6]
+00CF  8B 56 FC           mov dx, [bp-0x4]
+00D2  5B                 pop bx
+00D3  89 07              mov [bx], ax
+00D5  89 EC              mov sp, bp
+00D7  5D                 pop bp
+00D8  C3                 ret
+00D9  55                 push bp
+00DA  89 E5              mov bp, sp
+00DC  B8 78 56           mov ax, 0x5678
+00DF  BA 34 12           mov dx, 0x1234
+00E2  52                 push dx
+00E3  50                 push ax
+00E4  E8 1D FF           call 0x0004
+00E7  5B                 pop bx
+00E8  5B                 pop bx
+00E9  B8 00 00           mov ax, 0x0000
+00EC  E9 00 00           jmp 0x00EF
+00EF  89 EC              mov sp, bp
+00F1  5D                 pop bp
+00F2  C3                 ret
+00F3  00 00              add [bx+si], al
+00F5  00 00              add [bx+si], al
+00F7  00 00              add [bx+si], al

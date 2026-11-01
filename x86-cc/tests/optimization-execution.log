@@ -1,0 +1,12 @@
+PASS return42 O0/O1 AX and HLT
+PASS struct_basic O0/O1 AX and HLT
+PASS struct_typed_layout O0/O1 AX and HLT
+PASS if_true O0/O1 AX and HLT
+PASS if_else_blocks O0/O1 AX and HLT
+PASS long_if_body O0/O1 AX and HLT
+PASS logical_and_true O0/O1 AX and HLT
+PASS logical_or_false O0/O1 AX and HLT
+PASS runtime_mul_locals O0/O1 AX and HLT
+PASS array_loop O0/O1 AX and HLT
+PASS large_local_array O0/O1 AX and HLT
+PASS execution equivalence: 11 programs, both levels

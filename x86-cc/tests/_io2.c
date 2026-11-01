@@ -1,0 +1,1 @@
+static unsigned int in8(unsigned int port){asm { mov dx, [bp+4] in al, dx xor ah, ah } return; } int main(void){return 0;}\n

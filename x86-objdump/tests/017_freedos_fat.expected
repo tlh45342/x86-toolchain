@@ -1,0 +1,6 @@
+cmp [es:di], 0x0
+and ah, 0xF
+and di, 0x00FF
+or ax, ax
+jnc 0x100F
+jmp far [bp+0x5A]

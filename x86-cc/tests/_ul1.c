@@ -1,0 +1,1 @@
+int main(void){unsigned long ul;ul=34;return 0;}\n

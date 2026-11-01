@@ -1,0 +1,1 @@
+struct node{int x;};void f(void *ptr){struct node*b;b=(struct node*)ptr;b=b-1;b->x=1;}

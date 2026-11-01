@@ -1,0 +1,2 @@
+assembled arm7-vi-sprint.bin.x86cc.asm -> arm7-vi-sprint.bin (25090 code bytes, 16-bit mode, bin)
+compiled tests\arm7_vi_reference.c -> arm7-vi-sprint.bin

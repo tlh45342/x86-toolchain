@@ -1,0 +1,73 @@
+logfile opened: O:\x86\toolchain\x86-cc\tests\phase5e.log
+Version: 0.0.22
+created vm id=0 (current)
+trace-format set: extended
+0000:1000  55                       push bp
+0000:1001  89 E5                    mov bp, sp
+0000:1003  50                       push ax
+0000:1004  50                       push ax
+0000:1005  50                       push ax
+0000:1006  50                       push ax
+0000:1007  50                       push ax
+0000:1008  50                       push ax
+0000:1009  50                       push ax
+0000:100A  89 E8                    mov ax, bp
+0000:100C  BB 0A 00                 mov bx, 0x000A
+0000:100F  29 D8                    sub ax, bx
+0000:1011  89 46 F4                 mov [bp-0xC], ax
+0000:1014  B8 03 00                 mov ax, 0x0003
+0000:1017  89 46 F2                 mov [bp-0xE], ax
+0000:101A  8B 46 F4                 mov ax, [bp-0xC]
+0000:101D  50                       push ax
+0000:101E  8B 46 F2                 mov ax, [bp-0xE]
+0000:1021  50                       push ax
+0000:1022  B8 01 00                 mov ax, 0x0001
+0000:1025  5B                       pop bx
+0000:1026  29 C3                    sub bx, ax
+0000:1028  89 D8                    mov ax, bx
+0000:102A  5B                       pop bx
+0000:102B  01 D8                    add ax, bx
+0000:102D  50                       push ax
+0000:102E  B8 28 00                 mov ax, 0x0028
+0000:1031  5B                       pop bx
+0000:1032  88 07                    mov [bx], al
+0000:1034  8B 46 F4                 mov ax, [bp-0xC]
+0000:1037  50                       push ax
+0000:1038  8B 46 F2                 mov ax, [bp-0xE]
+0000:103B  5B                       pop bx
+0000:103C  01 D8                    add ax, bx
+0000:103E  50                       push ax
+0000:103F  B8 02 00                 mov ax, 0x0002
+0000:1042  5B                       pop bx
+0000:1043  88 07                    mov [bx], al
+0000:1045  8B 46 F4                 mov ax, [bp-0xC]
+0000:1048  50                       push ax
+0000:1049  8B 46 F2                 mov ax, [bp-0xE]
+0000:104C  50                       push ax
+0000:104D  B8 01 00                 mov ax, 0x0001
+0000:1050  5B                       pop bx
+0000:1051  29 C3                    sub bx, ax
+0000:1053  89 D8                    mov ax, bx
+0000:1055  5B                       pop bx
+0000:1056  01 D8                    add ax, bx
+0000:1058  89 C3                    mov bx, ax
+0000:105A  8A 07                    mov al, [bx]
+0000:105C  B4 00                    mov ah, 0x00
+0000:105E  50                       push ax
+0000:105F  8B 46 F4                 mov ax, [bp-0xC]
+0000:1062  50                       push ax
+0000:1063  8B 46 F2                 mov ax, [bp-0xE]
+0000:1066  5B                       pop bx
+0000:1067  01 D8                    add ax, bx
+0000:1069  89 C3                    mov bx, ax
+0000:106B  8A 07                    mov al, [bx]
+0000:106D  B4 00                    mov ah, 0x00
+0000:106F  5B                       pop bx
+0000:1070  01 C3                    add bx, ax
+0000:1072  89 D8                    mov ax, bx
+0000:1074  E9 00 00                 jmp 0x1077
+0000:1077  89 EC                    mov sp, bp
+0000:1079  5D                       pop bp
+0000:107A  F4                       hlt
+AX=002A BX=002A CX=0000 DX=0000  SI=0000 DI=0000 BP=0000 SP=FFFE
+CS=0000 IP=107B DS=0000 ES=0000 SS=0000  FLAGS=0002

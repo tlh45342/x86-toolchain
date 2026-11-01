@@ -1,0 +1,1 @@
+extern int f(int,void*);extern void *kmalloc(int);int main(void){unsigned char*p;int r;p=(unsigned char*)kmalloc(512);r=f(1,p);return 42;}

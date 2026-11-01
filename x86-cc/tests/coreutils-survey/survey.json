@@ -1,0 +1,884 @@
+[
+  {
+    "file": "basename.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "basenc.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "cat.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "chcon.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "chmod.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "chown-chgrp.c",
+    "ok": false,
+    "first": "x86-cc: error: v0.0.47 requires int main(...)",
+    "all": "x86-cc: error: v0.0.47 requires int main(...)"
+  },
+  {
+    "file": "chown-chown.c",
+    "ok": false,
+    "first": "x86-cc: error: v0.0.47 requires int main(...)",
+    "all": "x86-cc: error: v0.0.47 requires int main(...)"
+  },
+  {
+    "file": "chown-core.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include pwd.h",
+    "all": "x86-cc: error: cannot find include pwd.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "chown.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "chroot.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "cksum.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "cksum_avx2.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include x86intrin.h",
+    "all": "x86-cc: error: cannot find include x86intrin.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "cksum_avx512.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include x86intrin.h",
+    "all": "x86-cc: error: cannot find include x86intrin.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "cksum_crc.c",
+    "ok": false,
+    "first": "x86-cc: error: invalid Phase 6B global declaration",
+    "all": "x86-cc: error: invalid Phase 6B global declaration"
+  },
+  {
+    "file": "cksum_pclmul.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include x86intrin.h",
+    "all": "x86-cc: error: cannot find include x86intrin.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "cksum_vmull.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include arm_neon.h",
+    "all": "x86-cc: error: cannot find include arm_neon.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "comm.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "copy-file-data.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "copy.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include sys/ioctl.h",
+    "all": "x86-cc: error: cannot find include sys/ioctl.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "coreutils-arch.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "coreutils-chgrp.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "coreutils-dir.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "coreutils-false.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "coreutils-lbracket.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "coreutils-md5sum.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "coreutils-sha1sum.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "coreutils-sha224sum.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "coreutils-sha256sum.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "coreutils-sha384sum.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "coreutils-sha512sum.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "coreutils-vdir.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "coreutils.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "cp-hash.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "cp.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "csplit.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "cut.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "date.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "dd.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include signal.h",
+    "all": "x86-cc: error: cannot find include signal.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "df.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "dircolors.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include fnmatch.h",
+    "all": "x86-cc: error: cannot find include fnmatch.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "dirname.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "du.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "echo.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "env.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include argz.h",
+    "all": "x86-cc: error: cannot find include argz.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "expand-common.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "expand.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "expr.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "factor.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "find-mount-point.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "fmt.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "fold.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "force-link.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "getlimits.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include signal.h",
+    "all": "x86-cc: error: cannot find include signal.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "group-list.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include pwd.h",
+    "all": "x86-cc: error: cannot find include pwd.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "groups.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include pwd.h",
+    "all": "x86-cc: error: cannot find include pwd.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "head.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "hostid.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "hostname.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "id.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include pwd.h",
+    "all": "x86-cc: error: cannot find include pwd.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "install.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "iopoll.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "join.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "kill.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "libstdbuf.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include gettext.h",
+    "all": "x86-cc: error: cannot find include gettext.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "link.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "ln.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "logname.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "ls-dir.c",
+    "ok": false,
+    "first": "x86-cc: error: v0.0.47 requires int main(...)",
+    "all": "x86-cc: error: v0.0.47 requires int main(...)"
+  },
+  {
+    "file": "ls-ls.c",
+    "ok": false,
+    "first": "x86-cc: error: v0.0.47 requires int main(...)",
+    "all": "x86-cc: error: v0.0.47 requires int main(...)"
+  },
+  {
+    "file": "ls-vdir.c",
+    "ok": false,
+    "first": "x86-cc: error: v0.0.47 requires int main(...)",
+    "all": "x86-cc: error: v0.0.47 requires int main(...)"
+  },
+  {
+    "file": "ls.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include termios.h",
+    "all": "x86-cc: error: cannot find include termios.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "make-prime-list.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include inttypes.h",
+    "all": "x86-cc: error: cannot find include inttypes.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "mkdir.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "mkfifo.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "mknod.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "mktemp.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "mv.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "nice.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "nl.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "nohup.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include signal.h",
+    "all": "x86-cc: error: cannot find include signal.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "nproc.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "numfmt.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include float.h",
+    "all": "x86-cc: error: cannot find include float.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "od.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include endian.h",
+    "all": "x86-cc: error: cannot find include endian.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "operand2sig.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include sys/wait.h",
+    "all": "x86-cc: error: cannot find include sys/wait.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "paste.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "pathchk.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "pinky.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "pr.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "printenv.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "printf.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include wchar.h",
+    "all": "x86-cc: error: cannot find include wchar.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "prog-fprintf.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include stdarg.h",
+    "all": "x86-cc: error: cannot find include stdarg.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "ptx.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "pwd.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "readlink.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "realpath.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "relpath.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "remove.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "rm.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "rmdir.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "runcon.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "selinux.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include selinux/label.h",
+    "all": "x86-cc: error: cannot find include selinux/label.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "seq.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "set-fields.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "show-date.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "shred.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "shuf.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "sleep.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "sort.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "split.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "stat.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include pwd.h",
+    "all": "x86-cc: error: cannot find include pwd.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "stdbuf.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "stty.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include termios.h",
+    "all": "x86-cc: error: cannot find include termios.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "sum.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include endian.h",
+    "all": "x86-cc: error: cannot find include endian.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "sync.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "tac-pipe.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include assure.h",
+    "all": "x86-cc: error: cannot find include assure.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "tac.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "tail.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "tee.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include signal.h",
+    "all": "x86-cc: error: cannot find include signal.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "temp-stream.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include stdlib--.h",
+    "all": "x86-cc: error: cannot find include stdlib--.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "termios.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include termios.h",
+    "all": "x86-cc: error: cannot find include termios.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "test-lbracket.c",
+    "ok": false,
+    "first": "x86-cc: error: v0.0.47 requires int main(...)",
+    "all": "x86-cc: error: v0.0.47 requires int main(...)"
+  },
+  {
+    "file": "test-test.c",
+    "ok": false,
+    "first": "x86-cc: error: v0.0.47 requires int main(...)",
+    "all": "x86-cc: error: v0.0.47 requires int main(...)"
+  },
+  {
+    "file": "test.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "timeout.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "touch.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "tr.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "true-false.c",
+    "ok": false,
+    "first": "x86-cc: error: v0.0.47 requires int main(...)",
+    "all": "x86-cc: error: v0.0.47 requires int main(...)"
+  },
+  {
+    "file": "true-true.c",
+    "ok": false,
+    "first": "x86-cc: error: v0.0.47 requires int main(...)",
+    "all": "x86-cc: error: v0.0.47 requires int main(...)"
+  },
+  {
+    "file": "true.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "truncate.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "tsort.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "tty.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "uname-arch.c",
+    "ok": false,
+    "first": "x86-cc: error: v0.0.47 requires int main(...)",
+    "all": "x86-cc: error: v0.0.47 requires int main(...)"
+  },
+  {
+    "file": "uname-uname.c",
+    "ok": false,
+    "first": "x86-cc: error: v0.0.47 requires int main(...)",
+    "all": "x86-cc: error: v0.0.47 requires int main(...)"
+  },
+  {
+    "file": "uname.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include sys/utsname.h",
+    "all": "x86-cc: error: cannot find include sys/utsname.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "unexpand.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "uniq.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "unlink.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "uptime.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "users.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "wc.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "wc_avx2.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "wc_avx512.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "wc_neon.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include attribute.h",
+    "all": "x86-cc: error: cannot find include attribute.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "who.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include getopt.h",
+    "all": "x86-cc: error: cannot find include getopt.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "whoami.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include pwd.h",
+    "all": "x86-cc: error: cannot find include pwd.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  },
+  {
+    "file": "yes.c",
+    "ok": false,
+    "first": "x86-cc: error: cannot find include sys/uio.h",
+    "all": "x86-cc: error: cannot find include sys/uio.h\nx86-cc: error: invalid or unreadable Phase 6I include"
+  }
+]

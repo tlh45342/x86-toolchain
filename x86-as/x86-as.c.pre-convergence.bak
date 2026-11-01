@@ -1,0 +1,750 @@
+/* x86-as.c - small NASM-like flat-binary assembler for the x86 project.
+ * Version 0.0.1
+ * Scope: 8086/8088-oriented, two-pass, intentionally small.
+ */
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
+#include <ctype.h>
+#include <errno.h>
+
+#define X86AS_VERSION "0.0.31"
+#define MAX_LINES 16384
+#define MAX_LINE 512
+#define MAX_SYMS 4096
+#define MAX_MACROS 128
+#define MAX_MACRO_LINES 64
+#define MAX_ARGS 16
+
+typedef struct { char text[MAX_LINE]; int line_no; } SrcLine;
+typedef struct { char name[64]; int nargs; char body[MAX_MACRO_LINES][MAX_LINE]; int nbody; } Macro;
+typedef struct { char name[96]; uint32_t value; int defined; } Symbol;
+typedef struct { uint32_t offset; char symbol[96]; int64_t addend; uint32_t type; } Reloc;
+
+typedef struct {
+    SrcLine lines[MAX_LINES]; int nlines;
+    Macro macros[MAX_MACROS]; int nmacros;
+    Symbol syms[MAX_SYMS]; int nsyms;
+    char globals[128][96]; int nglobals;
+    Reloc relocs[2048]; int nrelocs;
+    uint32_t org;
+    uint32_t pc;
+    int cpu_level; /* 86 for strict 8086 */
+    int mode_bits; /* 16 legacy default, 64 when -m64 is selected */
+    int output_elf64; /* -f elf64; currently valid only with -m64 */
+    int output_bjobj; /* -f bjobj: Blackjack 16-bit relocatable object */
+    int pass;
+    FILE *out;
+    int errors;
+} Asm;
+
+static void lower(char *s){ for(;*s;s++) *s=(char)tolower((unsigned char)*s); }
+static void trim(char *s){
+    char *p=s; while(isspace((unsigned char)*p)) p++;
+    if(p!=s) memmove(s,p,strlen(p)+1);
+    size_t n=strlen(s); while(n && isspace((unsigned char)s[n-1])) s[--n]=0;
+}
+static void strip_comment(char *s){
+    int sq=0,dq=0,br=0;
+    for(char *p=s;*p;p++){
+        if(*p=='\'' && !dq) sq=!sq;
+        else if(*p=='"' && !sq) dq=!dq;
+        else if(*p=='[' && !sq && !dq) br++;
+        else if(*p==']' && !sq && !dq && br) br--;
+        else if(*p==';' && !sq && !dq && !br){*p=0;break;}
+    }
+}
+static void err(Asm *a,int ln,const char *msg){ fprintf(stderr,"x86-as:%d: error: %s\n",ln,msg); a->errors++; }
+static int sym_find(Asm *a,const char *name,uint32_t *v){
+    for (int i = 0; i < a->nsyms; i++) {
+        if (!strcmp(a->syms[i].name, name) && a->syms[i].defined) {
+            *v = a->syms[i].value;
+            return 1;
+        }
+    }
+    return 0;
+}
+static int global_has(Asm *a,const char *name){
+    for(int i=0;i<a->nglobals;i++) if(!strcmp(a->globals[i],name)) return 1;
+    return 0;
+}
+static void global_add(Asm *a,const char *name,int ln){
+    if(global_has(a,name)) return;
+    if(a->nglobals>=128){err(a,ln,"too many global symbols");return;}
+    snprintf(a->globals[a->nglobals++],96,"%s",name);
+}
+static int global_index(Asm *a,const char *name){
+    for(int i=0;i<a->nglobals;i++) if(!strcmp(a->globals[i],name)) return i;
+    return -1;
+}
+static void reloc_add(Asm *a,uint32_t offset,const char *symbol,int64_t addend,uint32_t type,int ln){
+    if(a->pass!=2) return;
+    if(a->nrelocs>=2048){err(a,ln,"too many relocations");return;}
+    Reloc *r=&a->relocs[a->nrelocs++];
+    r->offset=offset;r->addend=addend;r->type=type;
+    snprintf(r->symbol,sizeof(r->symbol),"%s",symbol);
+}
+static void sym_set(Asm *a,const char *name,uint32_t v,int ln){
+    for(int i=0;i<a->nsyms;i++) if(!strcmp(a->syms[i].name,name)){
+        if(a->pass==1 && a->syms[i].defined){err(a,ln,"duplicate symbol"); return;}
+        a->syms[i].value=v; a->syms[i].defined=1; return;
+    }
+    if(a->nsyms>=MAX_SYMS){err(a,ln,"too many symbols");return;}
+    snprintf(a->syms[a->nsyms].name,sizeof(a->syms[a->nsyms].name),"%s",name);
+    a->syms[a->nsyms].value=v; a->syms[a->nsyms].defined=1; a->nsyms++;
+}
+
+typedef struct { const char *p; Asm *a; int ln; int ok; } Expr;
+static void eskip(Expr *e){while(isspace((unsigned char)*e->p))e->p++;}
+static int64_t expr_or(Expr *e);
+static int64_t expr_primary(Expr *e){
+    eskip(e);
+    if(*e->p=='('){ e->p++; int64_t v=expr_or(e); eskip(e); if(*e->p==')')e->p++; else {err(e->a,e->ln,"missing ')' in expression");e->ok=0;} return v; }
+    if(*e->p=='\''){
+        e->p++; unsigned char c=(unsigned char)*e->p++;
+        if(c=='\\') { char q=*e->p++; if(q=='n')c='\n'; else if(q=='r')c='\r'; else if(q=='t')c='\t'; else c=(unsigned char)q; }
+        if(*e->p!='\''){err(e->a,e->ln,"bad character literal");e->ok=0;} else e->p++;
+        return c;
+    }
+    if(*e->p=='$'){
+        if(e->p[1]=='$'){e->p+=2;return e->a->org;} e->p++; return (int64_t)e->a->org + e->a->pc;
+    }
+    if(isdigit((unsigned char)*e->p)){
+        char *end=NULL; errno=0; unsigned long v=strtoul(e->p,&end,0);
+        if(end==e->p || errno){err(e->a,e->ln,"bad number");e->ok=0;return 0;} e->p=end; return (int64_t)v;
+    }
+    if(isalpha((unsigned char)*e->p)||*e->p=='_'||*e->p=='.'){
+        char name[96];int n=0; while(isalnum((unsigned char)*e->p)||*e->p=='_'||*e->p=='.') {if(n<95)name[n++]=*e->p;e->p++;} name[n]=0;
+        uint32_t v=0; if(sym_find(e->a,name,&v)) return v;
+        if(e->a->pass==1) return 0;
+        char m[160];snprintf(m,sizeof(m),"unknown symbol '%s'",name);err(e->a,e->ln,m);e->ok=0;return 0;
+    }
+    err(e->a,e->ln,"bad expression");e->ok=0;return 0;
+}
+static int64_t expr_unary(Expr *e){eskip(e); if(*e->p=='+'){e->p++;return expr_unary(e);} if(*e->p=='-'){e->p++;return -expr_unary(e);} if(*e->p=='~'){e->p++;return ~expr_unary(e);} return expr_primary(e);}
+static int64_t expr_mul(Expr *e){int64_t v=expr_unary(e); for(;;){eskip(e); char op=*e->p;if(op!='*'&&op!='/'&&op!='%')break;e->p++;int64_t r=expr_unary(e);if((op=='/'||op=='%')&&r==0){err(e->a,e->ln,"divide by zero");e->ok=0;r=1;} if(op=='*')v*=r;else if(op=='/')v/=r;else v%=r;}return v;}
+static int64_t expr_add(Expr *e){int64_t v=expr_mul(e);for(;;){eskip(e);char op=*e->p;if(op!='+'&&op!='-')break;e->p++;int64_t r=expr_mul(e);v=(op=='+')?v+r:v-r;}return v;}
+static int64_t expr_shift(Expr *e){int64_t v=expr_add(e);for(;;){eskip(e);if(e->p[0]=='<'&&e->p[1]=='<'){e->p+=2;v<<=expr_add(e);}else if(e->p[0]=='>'&&e->p[1]=='>'){e->p+=2;v>>=expr_add(e);}else break;}return v;}
+static int64_t expr_and(Expr *e){int64_t v=expr_shift(e);for(;;){eskip(e);if(*e->p!='&'||e->p[1]=='&')break;e->p++;v&=expr_shift(e);}return v;}
+static int64_t expr_xor(Expr *e){int64_t v=expr_and(e);for(;;){eskip(e);if(*e->p!='^')break;e->p++;v^=expr_and(e);}return v;}
+static int64_t expr_or(Expr *e){int64_t v=expr_xor(e);for(;;){eskip(e);if(*e->p!='|'||e->p[1]=='|')break;e->p++;v|=expr_xor(e);}return v;}
+static int64_t eval(Asm *a,const char *s,int ln,int *ok){Expr e={s,a,ln,1};int64_t v=expr_or(&e);eskip(&e);if(*e.p){err(a,ln,"trailing text in expression");e.ok=0;}if(ok)*ok=e.ok;return v;}
+
+static void emit8(Asm*a,uint8_t v){if(a->pass==2&&a->out)fputc(v,a->out);a->pc++;}
+static void emit16(Asm*a,uint16_t v){emit8(a,(uint8_t)v);emit8(a,(uint8_t)(v>>8));}
+/* BJO1 ABS16 is deliberately small: for an object-local symbolic word the
+ * assembler writes the object's own offset as the addend and records type 2.
+ * The Blackjack16 linker adds the object's final placement plus link base. */
+static int has_symbol_token(const char *s){
+    while(*s){
+        if(isdigit((unsigned char)*s)){ while(isalnum((unsigned char)*s)) s++; continue; }
+        if(isalpha((unsigned char)*s)||*s=='_'||*s=='.'){
+            char w[96];int n=0;
+            while(isalnum((unsigned char)*s)||*s=='_'||*s=='.'){if(n<95)w[n++]=(char)tolower((unsigned char)*s);s++;}
+            w[n]=0;
+            if(strcmp(w,"ax")&&strcmp(w,"bx")&&strcmp(w,"cx")&&strcmp(w,"dx")&&
+               strcmp(w,"sp")&&strcmp(w,"bp")&&strcmp(w,"si")&&strcmp(w,"di")&&
+               strcmp(w,"al")&&strcmp(w,"ah")&&strcmp(w,"bl")&&strcmp(w,"bh")&&
+               strcmp(w,"cl")&&strcmp(w,"ch")&&strcmp(w,"dl")&&strcmp(w,"dh")&&
+               strcmp(w,"es")&&strcmp(w,"cs")&&strcmp(w,"ss")&&strcmp(w,"ds")&&
+               strcmp(w,"byte")&&strcmp(w,"word")) return 1;
+            continue;
+        }
+        s++;
+    }
+    return 0;
+}
+static void bj_abs16_local(Asm *a,uint32_t off,const char *expr,int ln){
+    if(a->output_bjobj && has_symbol_token(expr)) reloc_add(a,off,"",0,2,ln);
+}
+static void emit32(Asm*a,uint32_t v){for(int i=0;i<4;i++)emit8(a,(uint8_t)(v>>(i*8)));}
+static void emit64(Asm*a,uint64_t v){for(int i=0;i<8;i++)emit8(a,(uint8_t)(v>>(i*8)));}
+static int reg16(const char*s){static const char*n[]={"ax","cx","dx","bx","sp","bp","si","di"};for(int i=0;i<8;i++)if(!strcmp(s,n[i]))return i;return -1;}
+static int reg64(const char*s){static const char*n[]={"rax","rcx","rdx","rbx","rsp","rbp","rsi","rdi"};for(int i=0;i<8;i++)if(!strcmp(s,n[i]))return i;return -1;}
+static int reg8(const char*s){static const char*n[]={"al","cl","dl","bl","ah","ch","dh","bh"};for(int i=0;i<8;i++)if(!strcmp(s,n[i]))return i;return -1;}
+static int sreg(const char*s){if(!strcmp(s,"es"))return 0;if(!strcmp(s,"cs"))return 1;if(!strcmp(s,"ss"))return 2;if(!strcmp(s,"ds"))return 3;return -1;}
+
+static int split_operands(char *s,char *ops[],int max){int n=0,depth=0,sq=0,dq=0;char *start=s;for(char*p=s;;p++){char c=*p;if(c=='\''&&!dq)sq=!sq;else if(c=='"'&&!sq)dq=!dq;else if(!sq&&!dq){if(c=='['||c=='(')depth++;else if((c==']'||c==')')&&depth)depth--;if((c==','&&depth==0)||c==0){if(n<max){*p=0;trim(start);ops[n++]=start;}if(c==0)break;start=p+1;}}}return n;}
+
+typedef struct {int seg;int rm;int mod;int disp_size;int32_t disp;} Mem;
+static int parse_mem(Asm*a,const char*src,int ln,Mem*m){
+    char b[256];snprintf(b,sizeof(b),"%s",src);trim(b);lower(b);size_t L=strlen(b);if(L<2||b[0]!='['||b[L-1]!=']')return 0;b[L-1]=0;char *p=b+1;trim(p);
+    m->seg=-1;m->disp=0;m->disp_size=0;
+    char *colon=strchr(p,':');if(colon){*colon=0;trim(p);m->seg=sreg(p);if(m->seg<0){err(a,ln,"bad segment override");return -1;}p=colon+1;trim(p);}
+    int has_bx=0,has_bp=0,has_si=0,has_di=0;int sign=1;char tok[96];int tn=0;
+    for(;;){while(isspace((unsigned char)*p))p++; if(*p=='+'||*p=='-'){sign=*p=='-'?-1:1;p++;continue;} if(!*p)break;tn=0;while(*p&&*p!='+'&&*p!='-'){if(tn<95)tok[tn++]=*p;p++;}tok[tn]=0;trim(tok);
+        if(!strcmp(tok,"bx"))has_bx=1;else if(!strcmp(tok,"bp"))has_bp=1;else if(!strcmp(tok,"si"))has_si=1;else if(!strcmp(tok,"di"))has_di=1;else {int ok=1;int64_t v=eval(a,tok,ln,&ok);m->disp+=(int32_t)(sign*v);} sign=1;
+    }
+    if(has_bx&&has_si&&!has_bp&&!has_di)m->rm=0;else if(has_bx&&has_di&&!has_bp&&!has_si)m->rm=1;else if(has_bp&&has_si&&!has_bx&&!has_di)m->rm=2;else if(has_bp&&has_di&&!has_bx&&!has_si)m->rm=3;else if(has_si&&!has_bx&&!has_bp&&!has_di)m->rm=4;else if(has_di&&!has_bx&&!has_bp&&!has_si)m->rm=5;else if(has_bp&&!has_bx&&!has_si&&!has_di)m->rm=6;else if(has_bx&&!has_bp&&!has_si&&!has_di)m->rm=7;else if(!has_bx&&!has_bp&&!has_si&&!has_di){m->rm=6;m->mod=0;m->disp_size=2;return 1;}else {err(a,ln,"unsupported 8086 effective address");return -1;}
+    if(m->disp==0 && !(m->rm==6&&has_bp)){m->mod=0;m->disp_size=0;}else if(m->disp>=-128&&m->disp<=127){m->mod=1;m->disp_size=1;}else{m->mod=2;m->disp_size=2;} return 1;
+}
+static void emit_mem_prefix(Asm*a,Mem*m){if(m->seg==0)emit8(a,0x26);else if(m->seg==1)emit8(a,0x2E);else if(m->seg==2)emit8(a,0x36);else if(m->seg==3)emit8(a,0x3E);}
+static void emit_modrm_mem(Asm*a,int reg,Mem*m){emit8(a,(uint8_t)((m->mod<<6)|(reg<<3)|m->rm));if(m->disp_size==1)emit8(a,(uint8_t)m->disp);else if(m->disp_size==2)emit16(a,(uint16_t)m->disp);}
+static void emit_modrm_mem_abs16(Asm*a,int reg,Mem*m,const char *expr,int ln){
+    uint32_t off=a->pc+1;
+    emit_modrm_mem(a,reg,m);
+    if(m->mod==0&&m->rm==6&&m->disp_size==2)bj_abs16_local(a,off,expr,ln);
+}
+
+static int macro_find(Asm*a,const char*name){for(int i=0;i<a->nmacros;i++)if(!strcmp(a->macros[i].name,name))return i;return -1;}
+static const char *include_dirs[32]; static int n_include_dirs;
+static char include_stack[32][1024]; static int include_depth;
+static FILE *open_include(const char *parent,const char *name,char *resolved,size_t cap){
+ FILE *f; const char *slash=strrchr(parent,'/'),*back=strrchr(parent,'\\');
+ if(!slash||(back&&back>slash))slash=back;
+ if(slash){size_t n=(size_t)(slash-parent+1);if(n+strlen(name)+1<cap){memcpy(resolved,parent,n);strcpy(resolved+n,name);f=fopen(resolved,"r");if(f)return f;}}
+ f=fopen(name,"r");if(f){snprintf(resolved,cap,"%s",name);return f;}
+ for(int i=0;i<n_include_dirs;i++){snprintf(resolved,cap,"%s/%s",include_dirs[i],name);f=fopen(resolved,"r");if(f)return f;}
+ return NULL;
+}
+static void preprocess(Asm*a,const char*path){
+ if(include_depth>=32){fprintf(stderr,"x86-as: include nesting too deep: %s\n",path);exit(1);}
+ for(int i=0;i<include_depth;i++)if(!strcmp(include_stack[i],path)){fprintf(stderr,"x86-as: circular include: %s\n",path);exit(1);}
+ snprintf(include_stack[include_depth++],1024,"%s",path);
+    FILE*f=fopen(path,"r");if(!f){perror(path);exit(1);}char line[MAX_LINE];int ln=0;Macro *cur=NULL;
+    while(fgets(line,sizeof(line),f)){ln++;line[strcspn(line,"\r\n")]=0;char work[MAX_LINE];snprintf(work,sizeof(work),"%s",line);strip_comment(work);trim(work);char low[MAX_LINE];snprintf(low,sizeof(low),"%s",work);lower(low);
+        if(!strncmp(low,"%macro ",7)){if(a->nmacros>=MAX_MACROS){fprintf(stderr,"too many macros\n");exit(1);}char n[64];int na=0;if(sscanf(work+7,"%63s %d",n,&na)!=2){fprintf(stderr,"x86-as:%d: bad %%macro\n",ln);exit(1);}cur=&a->macros[a->nmacros++];memset(cur,0,sizeof(*cur));lower(n);snprintf(cur->name,sizeof(cur->name),"%s",n);cur->nargs=na;continue;}
+        if(!strcmp(low,"%endmacro")){cur=NULL;continue;} if(cur){if(cur->nbody<MAX_MACRO_LINES)snprintf(cur->body[cur->nbody++],MAX_LINE,"%s",line);continue;}
+        if(!work[0]){continue;}
+        if(!strncmp(low,"%include ",9)){
+            char resolved[1024]; char *q=work+9; trim(q); size_t len=strlen(q);
+            if(len<3 || q[0]!='"' || q[len-1]!='"'){fprintf(stderr,"%s:%d: bad include syntax\n",path,ln);exit(1);}
+            q[len-1]=0;
+            FILE *inc=open_include(path,q+1,resolved,sizeof(resolved));
+            if(!inc){fprintf(stderr,"%s:%d: include not found: %s\n",path,ln,q+1);exit(1);}
+            fclose(inc); preprocess(a,resolved); continue;
+        }
+        char first[64];int fi=0;const char*p=work;while(*p&&!isspace((unsigned char)*p)&&fi<63)first[fi++]=*p++;first[fi]=0;lower(first);int mi=macro_find(a,first);
+        if(mi>=0){while(isspace((unsigned char)*p))p++;char argbuf[MAX_LINE];snprintf(argbuf,sizeof(argbuf),"%s",p);char*args[MAX_ARGS]={0};int na=argbuf[0]?split_operands(argbuf,args,MAX_ARGS):0;Macro*m=&a->macros[mi];if(na!=m->nargs){fprintf(stderr,"x86-as:%d: macro %s expects %d args\n",ln,m->name,m->nargs);exit(1);}for(int bi=0;bi<m->nbody;bi++){char ex[MAX_LINE];snprintf(ex,sizeof(ex),"%s",m->body[bi]);for(int ai=1;ai<=na;ai++){char key[16];snprintf(key,sizeof(key),"%%%d",ai);char tmp[MAX_LINE];char*q=ex;tmp[0]=0;while(1){char*hit=strstr(q,key);if(!hit){strncat(tmp,q,sizeof(tmp)-strlen(tmp)-1);break;}strncat(tmp,q,(size_t)(hit-q));strncat(tmp,args[ai-1],sizeof(tmp)-strlen(tmp)-1);q=hit+strlen(key);}snprintf(ex,sizeof(ex),"%s",tmp);}if(a->nlines<MAX_LINES){snprintf(a->lines[a->nlines].text,MAX_LINE,"%s",ex);a->lines[a->nlines].line_no=ln;a->nlines++;}}continue;}
+        if(a->nlines<MAX_LINES){snprintf(a->lines[a->nlines].text,MAX_LINE,"%s",line);a->lines[a->nlines].line_no=ln;a->nlines++;}
+    }fclose(f);include_depth--;
+}
+
+static int parse_db_string(Asm*a,const char*s,int ln){
+    char quote = *s;
+    if (quote != '\'' && quote != '"') return 0;
+    s++;
+    while (*s && *s != quote) {
+        unsigned char c = (unsigned char)*s++;
+        if (c == '\\') {
+            if (!*s) { err(a, ln, "unterminated string"); return 1; }
+            char q = *s++;
+            if (q == 'n') c = '\n';
+            else if (q == 'r') c = '\r';
+            else if (q == 't') c = '\t';
+            else c = (unsigned char)q;
+        }
+        emit8(a, c);
+    }
+    if (*s != quote) { err(a, ln, "unterminated string"); return 1; }
+    s++;
+    while (isspace((unsigned char)*s)) s++;
+    if (*s) err(a, ln, "trailing text after string literal");
+    return 1;
+}
+static void assemble_stmt(Asm*a,char*stmt,int ln);
+static void directive_data(Asm*a,const char*kind,char*args,int ln){char*ops[MAX_ARGS];int n=split_operands(args,ops,MAX_ARGS);for(int i=0;i<n;i++){trim(ops[i]);if(!strcmp(kind,"db")&&parse_db_string(a,ops[i],ln))continue;int ok=1;int64_t v=eval(a,ops[i],ln,&ok);if(!strcmp(kind,"db"))emit8(a,(uint8_t)v);else emit16(a,(uint16_t)v);}}
+static void assemble_stmt(Asm*a,char*stmt,int ln){
+    strip_comment(stmt);trim(stmt);if(!*stmt)return;
+    /* label */
+    char *colon=NULL;int br=0,sq=0,dq=0;for(char*p=stmt;*p;p++){if(isspace((unsigned char)*p) && !br && !sq && !dq) break;if(*p=='\''&&!dq)sq=!sq;else if(*p=='"'&&!sq)dq=!dq;else if(!sq&&!dq){if(*p=='[')br++;else if(*p==']'&&br)br--;else if(*p==':'&&!br){colon=p;break;}}}
+    if(colon){*colon=0;trim(stmt);char name[96];snprintf(name,sizeof(name),"%s",stmt);lower(name);if(*name)sym_set(a,name,a->org+a->pc,ln);stmt=colon+1;trim(stmt);if(!*stmt)return;}
+    char word[64];int wi=0;char*p=stmt;while(*p&&!isspace((unsigned char)*p)&&wi<63)word[wi++]=*p++;word[wi]=0;lower(word);while(isspace((unsigned char)*p))p++;
+    if(!strcmp(word,"bits")){
+        char q[32];snprintf(q,sizeof(q),"%s",p);trim(q);
+        int requested=atoi(q);
+        if(requested!=16&&requested!=64){err(a,ln,"BITS supports 16 or 64");return;}
+        if(requested==64&&a->mode_bits!=64){err(a,ln,"BITS 64 requires -m64");return;}
+        if(requested==16&&a->mode_bits==64){err(a,ln,"BITS 16 conflicts with -m64");return;}
+        return;
+    }
+    if(!strcmp(word,"section")){
+        char q[64];snprintf(q,sizeof(q),"%s",p);trim(q);lower(q);
+        if(!a->output_elf64){err(a,ln,"SECTION is currently supported only with -f elf64");return;}
+        if(strcmp(q,".text")){err(a,ln,"Phase 1B ELF64 supports only section .text");return;}
+        return;
+    }
+    if(!strcmp(word,"global")||!strcmp(word,"extern")){
+        if(!a->output_elf64 && !a->output_bjobj){err(a,ln,"GLOBAL/EXTERN require a relocatable output format");return;}
+        char gb[MAX_LINE];snprintf(gb,sizeof(gb),"%s",p);char*names[MAX_ARGS];int nn=split_operands(gb,names,MAX_ARGS);
+        for(int i=0;i<nn;i++){trim(names[i]);lower(names[i]);if(!*names[i]){err(a,ln,"empty GLOBAL symbol");return;}global_add(a,names[i],ln);}
+        return;
+    }
+    if(!strcmp(word,"cpu")){char q[64];snprintf(q,sizeof(q),"%s",p);trim(q);lower(q);if(!strcmp(q,"8086")||!strcmp(q,"8088"))a->cpu_level=86;else {err(a,ln,"phase1 supports cpu 8086/8088 only");}return;}
+    if(!strcmp(word,"org")){if(a->output_elf64){err(a,ln,"ORG is not valid for ELF64 relocatable objects");return;}int ok=1;int64_t v=eval(a,p,ln,&ok);if(a->pc!=0)err(a,ln,"org must appear before output");else a->org=(uint32_t)v;return;}
+    if(!strcmp(word,"equ")){err(a,ln,"use NAME equ EXPR form");return;}
+    /* NAME equ EXPR */
+    char copy[MAX_LINE];snprintf(copy,sizeof(copy),"%s",stmt);char*n1=strtok(copy," \t");char*n2=strtok(NULL," \t");if(n1&&n2){char l2[64];snprintf(l2,sizeof(l2),"%s",n2);lower(l2);if(!strcmp(l2,"equ")){char*ep=strstr(stmt,n2);ep+=strlen(n2);trim(ep);char nn[96];snprintf(nn,sizeof(nn),"%s",n1);lower(nn);int ok=1;int64_t v=eval(a,ep,ln,&ok);sym_set(a,nn,(uint32_t)v,ln);return;}}
+    if(!strcmp(word,"db")||!strcmp(word,"dw")){char ab[MAX_LINE];snprintf(ab,sizeof(ab),"%s",p);directive_data(a,word,ab,ln);return;}
+    if(!strcmp(word,"times")){char *db=strstr(p," db ");char *dw=strstr(p," dw ");char *hit=db?db:dw;if(!hit){err(a,ln,"times currently requires db/dw");return;}char ex[256];size_t n=(size_t)(hit-p);if(n>=sizeof(ex))n=sizeof(ex)-1;memcpy(ex,p,n);ex[n]=0;trim(ex);int ok=1;int64_t count=eval(a,ex,ln,&ok);char rest[MAX_LINE];snprintf(rest,sizeof(rest),"%s",hit+1);for(int64_t i=0;i<count;i++){char rr[MAX_LINE];snprintf(rr,sizeof(rr),"%s",rest);assemble_stmt(a,rr,ln);}return;}
+    char argsbuf[MAX_LINE];snprintf(argsbuf,sizeof(argsbuf),"%s",p);char*ops[4]={0};int no=argsbuf[0]?split_operands(argsbuf,ops,4):0;for(int i=0;i<no;i++){trim(ops[i]); if (!strchr(ops[i], '\'')) lower(ops[i]);}
+    /* Phase 1A: deliberately tiny x86-64 flat-binary encoder seed. */
+    if(a->mode_bits==64){
+        if(!strcmp(word,"syscall")&&no==0){emit8(a,0x0F);emit8(a,0x05);return;}
+        if(!strcmp(word,"lea")&&no==2){
+            int d=reg64(ops[0]);
+            if(d>=0){
+                char mem[256];snprintf(mem,sizeof(mem),"%s",ops[1]);trim(mem);
+                size_t ml=strlen(mem);
+                if(ml>=6 && mem[0]=='[' && mem[ml-1]==']'){
+                    mem[ml-1]=0;char *inside=mem+1;trim(inside);
+                    if(!strncmp(inside,"rel ",4)){
+                        char sym[96];size_t sl=strlen(inside+4);if(sl>=sizeof(sym)){err(a,ln,"relocation symbol name too long");return;}memcpy(sym,inside+4,sl+1);trim(sym);lower(sym);
+                        uint32_t dummy=0;
+                        if(a->pass==2 && !sym_find(a,sym,&dummy)){char em[160];snprintf(em,sizeof(em),"unknown symbol '%s'",sym);err(a,ln,em);return;}
+                        if(a->output_elf64 && !global_has(a,sym)){err(a,ln,"Phase 1B.1 relocation target must be declared GLOBAL");return;}
+                        uint32_t disp_off=a->pc+3;
+                        emit8(a,0x48);emit8(a,0x8D);emit8(a,(uint8_t)(0x05|(d<<3)));
+                        emit32(a,0);
+                        if(a->output_elf64) reloc_add(a,disp_off,sym,-4,2,ln);
+                        else {
+                            uint32_t target=0;if(sym_find(a,sym,&target)){
+                                /* Flat-binary rel32 fixups are not part of this phase. */
+                                err(a,ln,"[rel symbol] currently requires -f elf64");return;
+                            }
+                        }
+                        return;
+                    }
+                }
+            }
+        }
+        if(!strcmp(word,"mov")&&no==2){
+            int d=reg64(ops[0]);
+            if(d>=0&&reg64(ops[1])<0){int ok=1;int64_t v=eval(a,ops[1],ln,&ok);if(ok){emit8(a,0x48);emit8(a,(uint8_t)(0xB8+d));emit64(a,(uint64_t)v);return;}}
+        }
+        if(!strcmp(word,"xor")&&no==2){
+            int d=reg64(ops[0]),sr=reg64(ops[1]);
+            if(d>=0&&sr>=0){emit8(a,0x48);emit8(a,0x31);emit8(a,(uint8_t)(0xC0|(sr<<3)|d));return;}
+        }
+    }
+
+    if(!strcmp(word,"cwd")&&no==0){emit8(a,0x99);return;}if(!strcmp(word,"pushf")&&no==0){emit8(a,0x9C);return;}if(!strcmp(word,"popf")&&no==0){emit8(a,0x9D);return;}if(!strcmp(word,"sahf")&&no==0){emit8(a,0x9E);return;}if(!strcmp(word,"lahf")&&no==0){emit8(a,0x9F);return;}if(!strcmp(word,"cmc")&&no==0){emit8(a,0xF5);return;}if(!strcmp(word,"clc")&&no==0){emit8(a,0xF8);return;}if(!strcmp(word,"stc")&&no==0){emit8(a,0xF9);return;}if(!strcmp(word,"xlat")&&no==0){emit8(a,0xD7);return;}if(!strcmp(word,"nop")){emit8(a,0x90);return;}if(!strcmp(word,"cbw")){emit8(a,0x98);return;}if(!strcmp(word,"movsb")){emit8(a,0xA4);return;}if(!strcmp(word,"movsw")){emit8(a,0xA5);return;}if(!strcmp(word,"cmpsb")){emit8(a,0xA6);return;}if(!strcmp(word,"cmpsw")){emit8(a,0xA7);return;}if(!strcmp(word,"stosb")){emit8(a,0xAA);return;}if(!strcmp(word,"stosw")){emit8(a,0xAB);return;}if(!strcmp(word,"lodsb")){emit8(a,0xAC);return;}if(!strcmp(word,"lodsw")){emit8(a,0xAD);return;}if(!strcmp(word,"scasb")){emit8(a,0xAE);return;}if(!strcmp(word,"scasw")){emit8(a,0xAF);return;}if(!strcmp(word,"hlt")){emit8(a,0xF4);return;}if(!strcmp(word,"cli")){emit8(a,0xFA);return;}if(!strcmp(word,"sti")){emit8(a,0xFB);return;}if(!strcmp(word,"cld")){emit8(a,0xFC);return;}if(!strcmp(word,"std")){emit8(a,0xFD);return;}
+    if(!strcmp(word,"iret")){emit8(a,0xCF);return;}
+    if(!strcmp(word,"in")&&no==2){
+        if(!strcmp(ops[0],"al")){
+            if(!strcmp(ops[1],"dx")){emit8(a,0xEC);return;}
+            int ok=1;int64_t v=eval(a,ops[1],ln,&ok);if(ok&&v>=0&&v<=255){emit8(a,0xE4);emit8(a,(uint8_t)v);return;}
+        }
+        if(!strcmp(ops[0],"ax")){
+            if(!strcmp(ops[1],"dx")){emit8(a,0xED);return;}
+            int ok=1;int64_t v=eval(a,ops[1],ln,&ok);if(ok&&v>=0&&v<=255){emit8(a,0xE5);emit8(a,(uint8_t)v);return;}
+        }
+        err(a,ln,"unsupported IN form");return;
+    }
+    if(!strcmp(word,"out")&&no==2){
+        if(!strcmp(ops[0],"dx")&&!strcmp(ops[1],"al")){emit8(a,0xEE);return;}
+        if(!strcmp(ops[0],"dx")&&!strcmp(ops[1],"ax")){emit8(a,0xEF);return;}
+        if(!strcmp(ops[1],"al")){int ok=1;int64_t v=eval(a,ops[0],ln,&ok);if(ok&&v>=0&&v<=255){emit8(a,0xE6);emit8(a,(uint8_t)v);return;}}
+        if(!strcmp(ops[1],"ax")){int ok=1;int64_t v=eval(a,ops[0],ln,&ok);if(ok&&v>=0&&v<=255){emit8(a,0xE7);emit8(a,(uint8_t)v);return;}}
+        err(a,ln,"unsupported OUT form");return;
+    }
+    if(!strcmp(word,"ret")){
+        if(no==0){emit8(a,0xC3);return;}
+        if(no==1){int ok=1;int64_t v=eval(a,ops[0],ln,&ok);if(ok){emit8(a,0xC2);emit16(a,(uint16_t)v);return;}}
+    }
+    if(!strcmp(word,"retf")){
+        if(no==0){emit8(a,0xCB);return;}
+        if(no==1){int ok=1;int64_t v=eval(a,ops[0],ln,&ok);if(ok){emit8(a,0xCA);emit16(a,(uint16_t)v);return;}}
+    }
+    if((!strcmp(word,"repne")||!strcmp(word,"repnz"))&&no==1){if(!strcmp(ops[0],"cmpsb")){emit8(a,0xF2);emit8(a,0xA6);return;}if(!strcmp(ops[0],"cmpsw")){emit8(a,0xF2);emit8(a,0xA7);return;}if(!strcmp(ops[0],"scasb")){emit8(a,0xF2);emit8(a,0xAE);return;}if(!strcmp(ops[0],"scasw")){emit8(a,0xF2);emit8(a,0xAF);return;}err(a,ln,"F2 prefix supports CMPS/SCAS");return;}
+    if((!strcmp(word,"rep")||!strcmp(word,"repe")||!strcmp(word,"repz"))&&no==1){
+        if(!strcmp(ops[0],"movsb")){emit8(a,0xF3);emit8(a,0xA4);return;}
+        if(!strcmp(ops[0],"movsw")){emit8(a,0xF3);emit8(a,0xA5);return;}
+        if(!strcmp(ops[0],"cmpsb")){emit8(a,0xF3);emit8(a,0xA6);return;}
+        if(!strcmp(ops[0],"cmpsw")){emit8(a,0xF3);emit8(a,0xA7);return;}
+        if(!strcmp(ops[0],"scasb")){emit8(a,0xF3);emit8(a,0xAE);return;}
+        if(!strcmp(ops[0],"scasw")){emit8(a,0xF3);emit8(a,0xAF);return;}
+        if(!strcmp(ops[0],"stosb")){emit8(a,0xF3);emit8(a,0xAA);return;}
+        if(!strcmp(ops[0],"stosw")){emit8(a,0xF3);emit8(a,0xAB);return;}
+        err(a,ln,"F3 prefix supports MOVS/CMPS/SCAS/STOS in current subset");return;
+    }
+    if((!strcmp(word,"les")||!strcmp(word,"lds"))&&no==2&&reg16(ops[0])>=0){Mem m;int pm=parse_mem(a,ops[1],ln,&m);if(pm==1){emit_mem_prefix(a,&m);emit8(a,!strcmp(word,"les")?0xC4:0xC5);emit_modrm_mem_abs16(a,reg16(ops[0]),&m,ops[1],ln);return;}if(pm<0)return;err(a,ln,"LES/LDS requires an 8086 memory operand");return;}
+    if(!strcmp(word,"int")&&no==1){int ok=1;int64_t v=eval(a,ops[0],ln,&ok);emit8(a,0xCD);emit8(a,(uint8_t)v);return;}
+    if(!strcmp(word,"push")&&no==1&&reg16(ops[0])>=0){emit8(a,(uint8_t)(0x50+reg16(ops[0])));return;}
+    if(!strcmp(word,"push")&&no==1){
+        if(!strcmp(ops[0],"es")){emit8(a,0x06);return;}
+        if(!strcmp(ops[0],"cs")){emit8(a,0x0E);return;}
+        if(!strcmp(ops[0],"ss")){emit8(a,0x16);return;}
+        if(!strcmp(ops[0],"ds")){emit8(a,0x1E);return;}
+    }
+
+    if(!strcmp(word,"push")&&no==1){char q[256];snprintf(q,sizeof(q),"%s",ops[0]);if(!strncmp(q,"word ",5))memmove(q,q+5,strlen(q+5)+1);Mem m;int pm=parse_mem(a,q,ln,&m);if(pm==1){emit_mem_prefix(a,&m);emit8(a,0xFF);emit_modrm_mem_abs16(a,6,&m,q,ln);return;}}
+    if(!strcmp(word,"pop")&&no==1&&reg16(ops[0])>=0){emit8(a,(uint8_t)(0x58+reg16(ops[0])));return;}
+    if(!strcmp(word,"pop")&&no==1){
+        if(!strcmp(ops[0],"es")){emit8(a,0x07);return;}
+        if(!strcmp(ops[0],"ss")){emit8(a,0x17);return;}
+        if(!strcmp(ops[0],"ds")){emit8(a,0x1F);return;}
+    }
+
+    if(!strcmp(word,"pop")&&no==1){char q[256];snprintf(q,sizeof(q),"%s",ops[0]);if(!strncmp(q,"word ",5))memmove(q,q+5,strlen(q+5)+1);Mem m;int pm=parse_mem(a,q,ln,&m);if(pm==1){emit_mem_prefix(a,&m);emit8(a,0x8F);emit_modrm_mem_abs16(a,0,&m,q,ln);return;}}
+    if(!strcmp(word,"test")&&no==2){
+        int d8=reg8(ops[0]),s8=reg8(ops[1]),d16=reg16(ops[0]),s16=reg16(ops[1]);
+        if(d8==0 && s8<0){int ok=1;int64_t v=eval(a,ops[1],ln,&ok);if(ok){emit8(a,0xA8);emit8(a,(uint8_t)v);return;}}
+        if(d16==0 && s16<0){int ok=1;int64_t v=eval(a,ops[1],ln,&ok);if(ok){emit8(a,0xA9);emit16(a,(uint16_t)v);return;}}
+        if(d8>=0&&s8>=0){emit8(a,0x84);emit8(a,(uint8_t)(0xC0|(s8<<3)|d8));return;}
+        if(d16>=0&&s16>=0){emit8(a,0x85);emit8(a,(uint8_t)(0xC0|(s16<<3)|d16));return;}
+        char memop[256];snprintf(memop,sizeof(memop),"%s",ops[0]);
+        int byteop=0,wordop=0;
+        if(!strncmp(memop,"byte ",5)){byteop=1;memmove(memop,memop+5,strlen(memop+5)+1);}
+        else if(!strncmp(memop,"word ",5)){wordop=1;memmove(memop,memop+5,strlen(memop+5)+1);}
+        Mem m;int pm=parse_mem(a,memop,ln,&m);
+        if(pm==1&&s8>=0&&(byteop||!wordop)){emit_mem_prefix(a,&m);emit8(a,0x84);emit_modrm_mem(a,s8,&m);return;}
+        if(pm==1&&s16>=0&&(wordop||!byteop)){emit_mem_prefix(a,&m);emit8(a,0x85);emit_modrm_mem(a,s16,&m);return;}
+    }
+    if(!strcmp(word,"or")&&no==2){
+        int d=reg8(ops[0]),s=reg8(ops[1]);
+        if(d>=0&&s>=0){emit8(a,0x08);emit8(a,(uint8_t)(0xC0|(s<<3)|d));return;}
+    }
+    if(!strcmp(word,"or")&&no==2){
+        int d16=reg16(ops[0]),s16=reg16(ops[1]);
+        if(d16>=0&&s16>=0){emit8(a,0x09);emit8(a,(uint8_t)(0xC0|(s16<<3)|d16));return;}
+    }
+    if(!strcmp(word,"xchg")&&no==2){
+        int d16=reg16(ops[0]),s16=reg16(ops[1]),d8=reg8(ops[0]),s8=reg8(ops[1]);
+        if(d16==0&&s16>0){emit8(a,(uint8_t)(0x90+s16));return;}
+        if(s16==0&&d16>0){emit8(a,(uint8_t)(0x90+d16));return;}
+        if(d8>=0&&s8>=0){emit8(a,0x86);emit8(a,(uint8_t)(0xC0|(s8<<3)|d8));return;}
+        if(d16>=0&&s16>=0){emit8(a,0x87);emit8(a,(uint8_t)(0xC0|(s16<<3)|d16));return;}
+        char lm[256],rmop[256]; snprintf(lm,sizeof(lm),"%s",ops[0]); snprintf(rmop,sizeof(rmop),"%s",ops[1]);
+        if(!strncmp(lm,"word ",5))memmove(lm,lm+5,strlen(lm+5)+1);
+        if(!strncmp(rmop,"word ",5))memmove(rmop,rmop+5,strlen(rmop+5)+1);
+        Mem m; int pm=parse_mem(a,lm,ln,&m);
+        if(pm==1&&s16>=0){emit_mem_prefix(a,&m);emit8(a,0x87);emit_modrm_mem_abs16(a,s16,&m,lm,ln);return;}
+        pm=parse_mem(a,rmop,ln,&m);
+        if(d16>=0&&pm==1){emit_mem_prefix(a,&m);emit8(a,0x87);emit_modrm_mem_abs16(a,d16,&m,rmop,ln);return;}
+    }
+
+    /* 8086 INC/DEC family.
+     * Register word forms use 40+rw / 48+rw.  r/m forms use FE /0,/1
+     * for byte and FF /0,/1 for word.  Memory width must be explicit. */
+    if((!strcmp(word,"inc")||!strcmp(word,"dec"))&&no==1){
+        int isdec=!strcmp(word,"dec");
+        int r8=reg8(ops[0]),r16=reg16(ops[0]);
+        if(r16>=0){emit8(a,(uint8_t)((isdec?0x48:0x40)+r16));return;}
+        if(r8>=0){emit8(a,0xFE);emit8(a,(uint8_t)(0xC0|(isdec?0x08:0x00)|r8));return;}
+        char memop[256];int width=0;
+        snprintf(memop,sizeof(memop),"%s",ops[0]);
+        if(!strncmp(memop,"byte ",5)){width=8;memmove(memop,memop+5,strlen(memop+5)+1);}
+        else if(!strncmp(memop,"word ",5)){width=16;memmove(memop,memop+5,strlen(memop+5)+1);}
+        Mem m;int pm=parse_mem(a,memop,ln,&m);
+        if(pm==1&&width){emit_mem_prefix(a,&m);emit8(a,width==8?0xFE:0xFF);emit_modrm_mem_abs16(a,isdec?1:0,&m,memop,ln);return;}
+        if(pm<0)return;
+        if(pm==1){err(a,ln,"INC/DEC memory operand requires byte/word size");return;}
+    }
+    if(!strcmp(word,"lea")&&no==2){int d=reg16(ops[0]);Mem m;int pm=parse_mem(a,ops[1],ln,&m);if(d>=0&&pm==1){emit_mem_prefix(a,&m);emit8(a,0x8D);emit_modrm_mem_abs16(a,d,&m,ops[1],ln);return;}}
+    /* Phase 38: close the original 8086 Group-3 unary/multiply/divide family.
+     * F6 is byte, F7 is word.  /1 is undefined on the 8086 and is not exposed.
+     * TEST /0 immediate is handled by the TEST path below; this path closes the
+     * one-operand /2 NOT, /3 NEG, /4 MUL, /5 IMUL, /6 DIV, /7 IDIV forms. */
+    if((!strcmp(word,"not")||!strcmp(word,"neg")||!strcmp(word,"mul")||
+        !strcmp(word,"imul")||!strcmp(word,"div")||!strcmp(word,"idiv"))&&no==1){
+        int ext = !strcmp(word,"not")?2 : !strcmp(word,"neg")?3 :
+                  !strcmp(word,"mul")?4 : !strcmp(word,"imul")?5 :
+                  !strcmp(word,"div")?6 : 7;
+        int r8=reg8(ops[0]), r16=reg16(ops[0]);
+        if(r8>=0){emit8(a,0xF6);emit8(a,(uint8_t)(0xC0|(ext<<3)|r8));return;}
+        if(r16>=0){emit8(a,0xF7);emit8(a,(uint8_t)(0xC0|(ext<<3)|r16));return;}
+        char memop[256]; int width=0;
+        snprintf(memop,sizeof(memop),"%s",ops[0]);
+        if(!strncmp(memop,"byte ",5)){width=8;memmove(memop,memop+5,strlen(memop+5)+1);}
+        else if(!strncmp(memop,"word ",5)){width=16;memmove(memop,memop+5,strlen(memop+5)+1);}
+        Mem m; int pm=parse_mem(a,memop,ln,&m);
+        if(pm==1&&width){emit_mem_prefix(a,&m);emit8(a,width==8?0xF6:0xF7);emit_modrm_mem_abs16(a,ext,&m,memop,ln);return;}
+        if(pm<0)return;
+        if(pm==1){err(a,ln,"Group-3 memory operand requires byte/word size");return;}
+    }
+    /* Phase 37: close the original 8086 Group-2 rotate/shift family.
+     * D0/D1 encode count 1, D2/D3 encode count CL.  The /digit selects:
+     *   /0 ROL, /1 ROR, /2 RCL, /3 RCR, /4 SHL/SAL, /5 SHR, /7 SAR.
+     * C0/C1 immediate-count encodings are 80186+ and intentionally excluded. */
+    if((!strcmp(word,"rol")||!strcmp(word,"ror")||!strcmp(word,"rcl")||
+        !strcmp(word,"rcr")||!strcmp(word,"shl")||!strcmp(word,"sal")||
+        !strcmp(word,"shr")||!strcmp(word,"sar"))&&no==2){
+        int ext = !strcmp(word,"rol")?0 : !strcmp(word,"ror")?1 :
+                  !strcmp(word,"rcl")?2 : !strcmp(word,"rcr")?3 :
+                  (!strcmp(word,"shl")||!strcmp(word,"sal"))?4 :
+                  !strcmp(word,"shr")?5 : 7;
+        int by1=!strcmp(ops[1],"1"), bycl=!strcmp(ops[1],"cl");
+        int r8=reg8(ops[0]), r16=reg16(ops[0]);
+        int byteop=0, wordop=0;
+        char memop[256];
+        if(!by1&&!bycl){err(a,ln,"8086 rotate/shift count must be 1 or CL");return;}
+        if(r8>=0){emit8(a,(uint8_t)(by1?0xD0:0xD2));emit8(a,(uint8_t)(0xC0|(ext<<3)|r8));return;}
+        if(r16>=0){emit8(a,(uint8_t)(by1?0xD1:0xD3));emit8(a,(uint8_t)(0xC0|(ext<<3)|r16));return;}
+        snprintf(memop,sizeof(memop),"%s",ops[0]);
+        if(!strncmp(memop,"byte ",5)){byteop=1;memmove(memop,memop+5,strlen(memop+5)+1);}
+        else if(!strncmp(memop,"word ",5)){wordop=1;memmove(memop,memop+5,strlen(memop+5)+1);}
+        Mem m;int pm=parse_mem(a,memop,ln,&m);
+        if(pm==1){
+            /* Preserve the assembler's historical convention: an unqualified
+             * Group-2 memory operand is a word. */
+            int isbyte=byteop&&!wordop;
+            emit_mem_prefix(a,&m);
+            emit8(a,(uint8_t)(by1?(isbyte?0xD0:0xD1):(isbyte?0xD2:0xD3)));
+            emit_modrm_mem_abs16(a,ext,&m,memop,ln);
+            return;
+        }
+    }
+    if(!strcmp(word,"mov")&&no==2){
+        int d8=reg8(ops[0]),d16=reg16(ops[0]),s8=reg8(ops[1]),s16=reg16(ops[1]); Mem m; int pm;
+        pm=parse_mem(a,ops[1],ln,&m);
+        if(pm==1&&m.mod==0&&m.rm==6&&m.disp_size==2&&(d8==0||d16==0)){emit_mem_prefix(a,&m);emit8(a,d8==0?0xA0:0xA1);uint32_t moff=a->pc;emit16(a,(uint16_t)m.disp);bj_abs16_local(a,moff,ops[1],ln);return;}
+        pm=parse_mem(a,ops[0],ln,&m);
+        if(pm==1&&m.mod==0&&m.rm==6&&m.disp_size==2&&(s8==0||s16==0)){emit_mem_prefix(a,&m);emit8(a,s8==0?0xA2:0xA3);uint32_t moff=a->pc;emit16(a,(uint16_t)m.disp);bj_abs16_local(a,moff,ops[0],ln);return;}
+    }
+    if(!strcmp(word,"mov")&&no==2){
+        int d16=reg16(ops[0]),s16=reg16(ops[1]),d8=reg8(ops[0]),s8=reg8(ops[1]),ds=sreg(ops[0]),ss=sreg(ops[1]);Mem m;int pm;
+        if(d16>=0&&s16<0&&sreg(ops[1])<0&&ops[1][0]!='['){int ok=1;int64_t v=eval(a,ops[1],ln,&ok);emit8(a,(uint8_t)(0xB8+d16));uint32_t roff=a->pc;emit16(a,(uint16_t)v);if(ok)bj_abs16_local(a,roff,ops[1],ln);return;}
+        if(d8>=0&&s8<0&&ops[1][0]!='['){int ok=1;int64_t v=eval(a,ops[1],ln,&ok);emit8(a,(uint8_t)(0xB0+d8));emit8(a,(uint8_t)v);return;}
+        if(ds>=0&&s16>=0){if(ds==1){err(a,ln,"MOV to CS is invalid");return;}emit8(a,0x8E);emit8(a,(uint8_t)(0xC0|(ds<<3)|s16));return;}
+        if(d16>=0&&ss>=0){emit8(a,0x8C);emit8(a,(uint8_t)(0xC0|(ss<<3)|d16));return;}
+        if(d16>=0&&s16>=0){emit8(a,0x89);emit8(a,(uint8_t)(0xC0|(s16<<3)|d16));return;}
+        if(d8>=0&&s8>=0){emit8(a,0x88);emit8(a,(uint8_t)(0xC0|(s8<<3)|d8));return;}
+        pm=parse_mem(a,ops[0],ln,&m);if(pm==1&&ss>=0){emit_mem_prefix(a,&m);emit8(a,0x8C);uint32_t moff=a->pc+1;emit_modrm_mem(a,ss,&m);if(m.mod==0&&m.rm==6&&m.disp_size==2)bj_abs16_local(a,moff,ops[0],ln);return;}
+        pm=parse_mem(a,ops[1],ln,&m);if(ds>=0&&pm==1){if(ds==1){err(a,ln,"MOV to CS is invalid");return;}emit_mem_prefix(a,&m);emit8(a,0x8E);uint32_t moff=a->pc+1;emit_modrm_mem(a,ds,&m);if(m.mod==0&&m.rm==6&&m.disp_size==2)bj_abs16_local(a,moff,ops[1],ln);return;}
+        pm=parse_mem(a,ops[0],ln,&m);if(pm==1&&s16>=0){emit_mem_prefix(a,&m);emit8(a,0x89);uint32_t moff=a->pc+1;emit_modrm_mem(a,s16,&m);if(m.mod==0&&m.rm==6&&m.disp_size==2)bj_abs16_local(a,moff,ops[0],ln);return;}
+        if(pm==1&&s8>=0){emit_mem_prefix(a,&m);emit8(a,0x88);emit_modrm_mem(a,s8,&m);return;}
+        pm=parse_mem(a,ops[1],ln,&m);if(d16>=0&&pm==1){emit_mem_prefix(a,&m);emit8(a,0x8B);uint32_t moff=a->pc+1;emit_modrm_mem(a,d16,&m);if(m.mod==0&&m.rm==6&&m.disp_size==2)bj_abs16_local(a,moff,ops[1],ln);return;}
+        if(d8>=0&&pm==1){emit_mem_prefix(a,&m);emit8(a,0x8A);emit_modrm_mem(a,d8,&m);return;}
+        { char memop[256]; snprintf(memop,sizeof(memop),"%s",ops[0]); if(!strncmp(memop,"byte ",5)){memmove(memop,memop+5,strlen(memop+5)+1);pm=parse_mem(a,memop,ln,&m);if(pm==1&&reg16(ops[1])<0&&reg8(ops[1])<0&&sreg(ops[1])<0&&ops[1][0]!='['){int ok=1;int64_t v=eval(a,ops[1],ln,&ok);emit_mem_prefix(a,&m);emit8(a,0xC6);emit_modrm_mem_abs16(a,0,&m,memop,ln);emit8(a,(uint8_t)v);return;}} }
+        { char memop[256]; snprintf(memop,sizeof(memop),"%s",ops[0]); if(!strncmp(memop,"word ",5)) memmove(memop,memop+5,strlen(memop+5)+1); pm=parse_mem(a,memop,ln,&m); if(pm==1 && reg16(ops[1])<0 && reg8(ops[1])<0 && sreg(ops[1])<0 && ops[1][0]!='['){int ok=1;int64_t v=eval(a,ops[1],ln,&ok);emit_mem_prefix(a,&m);emit8(a,0xC7);emit_modrm_mem_abs16(a,0,&m,memop,ln);emit16(a,(uint16_t)v);return;} }
+    }
+    /* Phase 36: complete primary arithmetic/logical register <-> r/m opcode rows. */
+    if((!strcmp(word,"add")||!strcmp(word,"or")||!strcmp(word,"adc")||!strcmp(word,"sbb")||!strcmp(word,"and")||!strcmp(word,"sub")||!strcmp(word,"xor")||!strcmp(word,"cmp"))&&no==2){
+        int fam=!strcmp(word,"add")?0:!strcmp(word,"or")?1:!strcmp(word,"adc")?2:!strcmp(word,"sbb")?3:!strcmp(word,"and")?4:!strcmp(word,"sub")?5:!strcmp(word,"xor")?6:7;
+        int base=fam*8;
+        int d8=reg8(ops[0]),s8=reg8(ops[1]),d16=reg16(ops[0]),s16=reg16(ops[1]);
+        if(d8>=0&&s8>=0){emit8(a,(uint8_t)(base+0));emit8(a,(uint8_t)(0xC0|(s8<<3)|d8));return;}
+        if(d16>=0&&s16>=0){emit8(a,(uint8_t)(base+1));emit8(a,(uint8_t)(0xC0|(s16<<3)|d16));return;}
+        char l[256],r[256];snprintf(l,sizeof(l),"%s",ops[0]);snprintf(r,sizeof(r),"%s",ops[1]);
+        int lbyte=0,lword=0,rbyte=0,rword=0;
+        if(!strncmp(l,"byte ",5)){lbyte=1;memmove(l,l+5,strlen(l+5)+1);}else if(!strncmp(l,"word ",5)){lword=1;memmove(l,l+5,strlen(l+5)+1);}
+        if(!strncmp(r,"byte ",5)){rbyte=1;memmove(r,r+5,strlen(r+5)+1);}else if(!strncmp(r,"word ",5)){rword=1;memmove(r,r+5,strlen(r+5)+1);}
+        Mem m;int pm=parse_mem(a,l,ln,&m);
+        if(pm==1&&s8>=0&&(lbyte||!lword)){emit_mem_prefix(a,&m);emit8(a,(uint8_t)(base+0));emit_modrm_mem_abs16(a,s8,&m,l,ln);return;}
+        if(pm==1&&s16>=0&&(lword||!lbyte)){emit_mem_prefix(a,&m);emit8(a,(uint8_t)(base+1));emit_modrm_mem_abs16(a,s16,&m,l,ln);return;}
+        pm=parse_mem(a,r,ln,&m);
+        if(d8>=0&&pm==1&&(rbyte||!rword)){emit_mem_prefix(a,&m);emit8(a,(uint8_t)(base+2));emit_modrm_mem_abs16(a,d8,&m,r,ln);return;}
+        if(d16>=0&&pm==1&&(rword||!rbyte)){emit_mem_prefix(a,&m);emit8(a,(uint8_t)(base+3));emit_modrm_mem_abs16(a,d16,&m,r,ln);return;}
+        if(d8==0&&s8<0&&ops[1][0]!='['){int ok=1;int64_t v=eval(a,ops[1],ln,&ok);if(ok){emit8(a,(uint8_t)(base+4));emit8(a,(uint8_t)v);return;}}
+        if(d16==0&&s16<0&&ops[1][0]!='['){char immx[256];snprintf(immx,sizeof(immx),"%s",ops[1]);if(!strncmp(immx,"byte ",5))memmove(immx,immx+5,strlen(immx+5)+1);int ok=1;int64_t v=eval(a,immx,ln,&ok);if(ok&&!(v>=-128&&v<=127)){emit8(a,(uint8_t)(base+5));emit16(a,(uint16_t)v);return;}}
+        /* General immediate forms: byte -> 80, word -> 83 if signed byte else 81. */
+        pm=parse_mem(a,l,ln,&m);
+        if((pm==1||d8>=0||d16>=0) && s8<0&&s16<0&&ops[1][0]!='['){
+            char immx[256];snprintf(immx,sizeof(immx),"%s",ops[1]);if(!strncmp(immx,"byte ",5))memmove(immx,immx+5,strlen(immx+5)+1);int ok=1;int64_t v=eval(a,immx,ln,&ok);if(ok){
+                if(d8>=0||lbyte){if(d8>=0){emit8(a,0x80);emit8(a,(uint8_t)(0xC0|(fam<<3)|d8));}else{emit_mem_prefix(a,&m);emit8(a,0x80);emit_modrm_mem(a,fam,&m);}emit8(a,(uint8_t)v);return;}
+                if(d16>=0){if(v>=-128&&v<=127){emit8(a,0x83);emit8(a,(uint8_t)(0xC0|(fam<<3)|d16));emit8(a,(uint8_t)v);}else{emit8(a,0x81);emit8(a,(uint8_t)(0xC0|(fam<<3)|d16));emit16(a,(uint16_t)v);}return;}
+                if(pm==1){emit_mem_prefix(a,&m);if(v>=-128&&v<=127){emit8(a,0x83);emit_modrm_mem(a,fam,&m);emit8(a,(uint8_t)v);}else{emit8(a,0x81);emit_modrm_mem(a,fam,&m);emit16(a,(uint16_t)v);}return;}
+            }
+        }
+    }
+    if(!strcmp(word,"dec")&&no==1){int r=reg8(ops[0]);if(r>=0){emit8(a,0xFE);emit8(a,(uint8_t)(0xC8|r));return;}}
+    if((!strcmp(word,"add")||!strcmp(word,"adc"))&&no==2){int d=reg16(ops[0]),sr=reg16(ops[1]);Mem m;int pm=parse_mem(a,ops[0],ln,&m);if(pm==1&&sr>=0){emit_mem_prefix(a,&m);emit8(a,!strcmp(word,"add")?0x01:0x11);emit_modrm_mem(a,sr,&m);return;}pm=parse_mem(a,ops[1],ln,&m);if(d>=0&&pm==1){emit_mem_prefix(a,&m);emit8(a,!strcmp(word,"add")?0x03:0x13);emit_modrm_mem(a,d,&m);return;}if(!strcmp(word,"adc")&&d>=0&&sr>=0){emit8(a,0x11);emit8(a,(uint8_t)(0xC0|(sr<<3)|d));return;}}
+    if(!strcmp(word,"sub")&&no==2&&!strncmp(ops[0],"byte ",5)){
+        char memop[256];snprintf(memop,sizeof(memop),"%s",ops[0]+5);trim(memop);
+        Mem m;int pm=parse_mem(a,memop,ln,&m);
+        if(pm==1){int ok=1;int64_t v=eval(a,ops[1],ln,&ok);if(ok){emit_mem_prefix(a,&m);emit8(a,0x80);emit_modrm_mem(a,5,&m);emit8(a,(uint8_t)v);return;}}
+    }
+    if((!strcmp(word,"add")||!strcmp(word,"adc")||!strcmp(word,"sub")||!strcmp(word,"cmp"))&&no==2){
+        char memop[256], immop[256];
+        snprintf(memop,sizeof(memop),"%s",ops[0]);
+        snprintf(immop,sizeof(immop),"%s",ops[1]);
+        if(!strncmp(memop,"word ",5)) memmove(memop,memop+5,strlen(memop+5)+1);
+        if(!strncmp(immop,"byte ",5)) memmove(immop,immop+5,strlen(immop+5)+1);
+        Mem m; int pm=parse_mem(a,memop,ln,&m);
+        if(pm==1){
+            int ok=1; int64_t v=eval(a,immop,ln,&ok);
+            int ext=!strcmp(word,"add")?0:!strcmp(word,"adc")?2:!strcmp(word,"sub")?5:7;
+            if(ok && v>=-128 && v<=127){
+                emit_mem_prefix(a,&m); emit8(a,0x83); emit_modrm_mem(a,ext,&m); emit8(a,(uint8_t)v); return;
+            }
+        }
+    }
+    if(!strcmp(word,"xor")&&no==2){int d8=reg8(ops[0]),s8=reg8(ops[1]),d16=reg16(ops[0]),s16=reg16(ops[1]);if(d8==0&&s8<0){int ok=1;int64_t v=eval(a,ops[1],ln,&ok);if(ok){emit8(a,0x34);emit8(a,(uint8_t)v);return;}}if(d16==0&&s16<0){int ok=1;int64_t v=eval(a,ops[1],ln,&ok);if(ok){emit8(a,0x35);emit16(a,(uint16_t)v);return;}}if(d8>=0&&s8>=0){emit8(a,0x30);emit8(a,(uint8_t)(0xC0|(s8<<3)|d8));return;}if(d16>=0&&s16>=0){emit8(a,0x31);emit8(a,(uint8_t)(0xC0|(s16<<3)|d16));return;}}
+    if((!strcmp(word,"xor")||!strcmp(word,"or")||!strcmp(word,"add")||!strcmp(word,"sub"))&&no==2){int d=reg16(ops[0]),s=reg16(ops[1]);if(d>=0&&s>=0){uint8_t op=!strcmp(word,"xor")?0x31:!strcmp(word,"or")?0x09:!strcmp(word,"add")?0x01:0x29;emit8(a,op);emit8(a,(uint8_t)(0xC0|(s<<3)|d));return;}if(d>=0&&s<0){int ok=1;int64_t v=eval(a,ops[1],ln,&ok);int ext=!strcmp(word,"add")?0:!strcmp(word,"or")?1:!strcmp(word,"sub")?5:-1;if(ext>=0&&v>=-128&&v<=127){emit8(a,0x83);emit8(a,(uint8_t)(0xC0|(ext<<3)|d));emit8(a,(uint8_t)v);return;}}}
+    if(!strcmp(word,"test")&&no==2){
+        char lhs[256]; snprintf(lhs,sizeof(lhs),"%s",ops[0]);
+        int byteop=0;
+        if(!strncmp(lhs,"byte ",5)){byteop=1;memmove(lhs,lhs+5,strlen(lhs+5)+1);}
+        else if(!strncmp(lhs,"word ",5)){memmove(lhs,lhs+5,strlen(lhs+5)+1);}
+        int r8=reg8(lhs),r16=reg16(lhs); int ok=1; int64_t v=eval(a,ops[1],ln,&ok);
+        if(ok&&r8>=0){emit8(a,0xF6);emit8(a,(uint8_t)(0xC0|r8));emit8(a,(uint8_t)v);return;}
+        if(ok&&r16>=0){emit8(a,0xF7);emit8(a,(uint8_t)(0xC0|r16));emit16(a,(uint16_t)v);return;}
+        Mem m; int pm=parse_mem(a,lhs,ln,&m);
+        if(ok&&pm==1){emit_mem_prefix(a,&m);emit8(a,byteop?0xF6:0xF7);emit_modrm_mem_abs16(a,0,&m,lhs,ln);if(byteop)emit8(a,(uint8_t)v);else emit16(a,(uint16_t)v);return;}
+    }
+    if(!strcmp(word,"cmp")&&no==2){
+        char memop[256]; snprintf(memop,sizeof(memop),"%s",ops[0]);
+        int byteop=0;
+        if(!strncmp(memop,"byte ",5)){byteop=1;memmove(memop,memop+5,strlen(memop+5)+1);}
+        if(byteop){
+            Mem m; int pm=parse_mem(a,memop,ln,&m);
+            if(pm==1){int ok=1;int64_t v=eval(a,ops[1],ln,&ok);if(ok){emit_mem_prefix(a,&m);emit8(a,0x80);emit_modrm_mem(a,7,&m);emit8(a,(uint8_t)v);return;}}
+        }
+    }
+    if(!strcmp(word,"cmp")&&no==2){int d8=reg8(ops[0]),d16=reg16(ops[0]);if(d8==0){int ok=1;int64_t v=eval(a,ops[1],ln,&ok);emit8(a,0x3C);emit8(a,(uint8_t)v);return;}if(d16==0){int ok=1;int64_t v=eval(a,ops[1],ln,&ok);emit8(a,0x3D);emit16(a,(uint16_t)v);return;}if(d16>=0){int ok=1;int64_t v=eval(a,ops[1],ln,&ok);if(v>=-128&&v<=127){emit8(a,0x83);emit8(a,(uint8_t)(0xF8|d16));emit8(a,(uint8_t)v);return;}}}
+    if((!strcmp(word,"loopnz")||!strcmp(word,"loopne")||!strcmp(word,"loopz")||!strcmp(word,"loope")||!strcmp(word,"loop"))&&no==1){
+        char *expr=ops[0]; if(!strncmp(expr,"short ",6)){expr+=6;trim(expr);}
+        int ok=1; int64_t target=eval(a,expr,ln,&ok); int64_t rel=target-((int64_t)a->org+a->pc+2);
+        if(a->pass==2&&(rel<-128||rel>127)){err(a,ln,"8086 LOOP target out of range");return;}
+        uint8_t op=(!strcmp(word,"loopnz")||!strcmp(word,"loopne"))?0xE0:(!strcmp(word,"loopz")||!strcmp(word,"loope"))?0xE1:0xE2;
+        emit8(a,op); emit8(a,(uint8_t)rel); return;
+    }
+    if(!strcmp(word,"jcxz")&&no==1){char *expr=ops[0];if(!strncmp(expr,"short ",6)){expr+=6;trim(expr);}int ok=1;int64_t target=eval(a,expr,ln,&ok);int64_t rel=target-((int64_t)a->org+a->pc+2);if(a->pass==2&&(rel<-128||rel>127)){err(a,ln,"8086 JCXZ out of range");return;}emit8(a,0xE3);emit8(a,(uint8_t)rel);return;}
+    if(no==1){static const char*jn[]={"jo","jno","jb","jc","jnae","jnb","jnc","jae","je","jz","jne","jnz","jbe","jna","ja","jnbe","js","jns","jp","jpe","jnp","jpo","jl","jnge","jge","jnl","jle","jng","jg","jnle"};static const uint8_t jo[]={0x70,0x71,0x72,0x72,0x72,0x73,0x73,0x73,0x74,0x74,0x75,0x75,0x76,0x76,0x77,0x77,0x78,0x79,0x7A,0x7A,0x7B,0x7B,0x7C,0x7C,0x7D,0x7D,0x7E,0x7E,0x7F,0x7F};for(unsigned ji=0;ji<sizeof(jo);ji++)if(!strcmp(word,jn[ji])){char*e=ops[0];if(!strncmp(e,"short ",6)){e+=6;trim(e);}int ok=1;int64_t t=eval(a,e,ln,&ok),rel=t-((int64_t)a->org+a->pc+2);if(a->pass==2&&(rel<-128||rel>127)){err(a,ln,"8086 conditional jump out of range");return;}emit8(a,jo[ji]);emit8(a,(uint8_t)rel);return;}}
+    if(!strcmp(word,"jmp")&&no==1){
+        int r=reg16(ops[0]);
+        if(r>=0){emit8(a,0xFF);emit8(a,(uint8_t)(0xE0|r));return;}
+        char memop[256];snprintf(memop,sizeof(memop),"%s",ops[0]);
+        if(!strncmp(memop,"word ",5))memmove(memop,memop+5,strlen(memop+5)+1);
+        Mem m;int pm=parse_mem(a,memop,ln,&m);
+        if(pm==1){emit_mem_prefix(a,&m);emit8(a,0xFF);emit_modrm_mem(a,4,&m);return;}
+    }
+    if(!strcmp(word,"jmp")&&no==1&&!strncmp(ops[0],"far ",4)){
+        char memop[256];snprintf(memop,sizeof(memop),"%s",ops[0]+4);trim(memop);
+        Mem m;int pm=parse_mem(a,memop,ln,&m);
+        if(pm==1){emit_mem_prefix(a,&m);emit8(a,0xFF);emit_modrm_mem(a,5,&m);return;}
+    }
+    if(!strcmp(word,"jmp")&&no>=1){
+        /* far ptr seg:off */ char *cc=strchr(ops[0],':');if(cc){*cc=0;int ok1=1,ok2=1;int64_t seg=eval(a,ops[0],ln,&ok1),off=eval(a,cc+1,ln,&ok2);emit8(a,0xEA);emit16(a,(uint16_t)off);emit16(a,(uint16_t)seg);return;}
+        int force_short=0;char*expr=ops[0];if(!strncmp(expr,"short ",6)){force_short=1;expr+=6;trim(expr);}int ok=1;int64_t target=eval(a,expr,ln,&ok);if(force_short){int64_t rel=target-((int64_t)a->org+a->pc+2);if(a->pass==2&&(rel<-128||rel>127)){err(a,ln,"short jump out of range");return;}emit8(a,0xEB);emit8(a,(uint8_t)rel);}else{int64_t rel=target-((int64_t)a->org+a->pc+3);emit8(a,0xE9);emit16(a,(uint16_t)rel);}return;
+    }
+    if(!strcmp(word,"call")&&no==1){
+        int r=reg16(ops[0]); if(r>=0){emit8(a,0xFF);emit8(a,(uint8_t)(0xD0|r));return;}
+        char memop[256];snprintf(memop,sizeof(memop),"%s",ops[0]);if(!strncmp(memop,"word ",5))memmove(memop,memop+5,strlen(memop+5)+1);
+        Mem m;int pm=parse_mem(a,memop,ln,&m);if(pm==1){emit_mem_prefix(a,&m);emit8(a,0xFF);emit_modrm_mem(a,2,&m);return;}
+        if(a->output_bjobj){
+            char *iend=NULL; long imm=strtol(ops[0],&iend,0);
+            if(iend && *iend==0){int64_t rel=(int64_t)imm-((int64_t)a->org+a->pc+3);emit8(a,0xE8);emit16(a,(uint16_t)rel);return;}
+            char sym[96]; uint32_t target=0; snprintf(sym,sizeof(sym),"%s",ops[0]); trim(sym); lower(sym);
+            uint32_t off=a->pc+1; emit8(a,0xE8);
+            if(sym_find(a,sym,&target)){int64_t rel=(int64_t)target-((int64_t)a->org+a->pc+2);emit16(a,(uint16_t)rel);}
+            else if(a->pass==1){emit16(a,0);}
+            else if(global_has(a,sym)){emit16(a,0);reloc_add(a,off,sym,-2,1,ln);}
+            else {err(a,ln,"unknown CALL target (declare EXTERN)");emit16(a,0);}
+            return;
+        }
+        int ok=1;int64_t target=eval(a,ops[0],ln,&ok);int64_t rel=target-((int64_t)a->org+a->pc+3);emit8(a,0xE8);emit16(a,(uint16_t)rel);return;
+    }
+    {char m[192];snprintf(m,sizeof(m),"unsupported instruction/directive: %s",word);err(a,ln,m);}
+}
+static int run_pass(Asm*a,int pass,const char*outpath){a->pass=pass;a->pc=0;a->errors=0;if(pass==2){a->nrelocs=0;a->out=fopen(outpath,"wb");if(!a->out){perror(outpath);return 0;}}for(int i=0;i<a->nlines;i++){char line[MAX_LINE];snprintf(line,sizeof(line),"%s",a->lines[i].text);assemble_stmt(a,line,a->lines[i].line_no);}if(a->out){fclose(a->out);a->out=NULL;}return a->errors==0;}
+
+static void put_u16(FILE*f,uint16_t v){fputc(v&0xff,f);fputc((v>>8)&0xff,f);}
+static void put_u32(FILE*f,uint32_t v){for(int i=0;i<4;i++)fputc((v>>(i*8))&0xff,f);}
+static void put_u64(FILE*f,uint64_t v){for(int i=0;i<8;i++)fputc((int)((v>>(i*8))&0xff),f);}
+static void pad_to(FILE*f,uint64_t off){long p=ftell(f);while(p>=0&&(uint64_t)p<off){fputc(0,f);p++;}}
+static uint64_t align_up_u64(uint64_t v,uint64_t a){return (v+a-1)&~(a-1);}
+
+static void write_elf64_sym(FILE*f,uint32_t name,uint8_t info,uint16_t shndx,uint64_t value,uint64_t size){
+    put_u32(f,name);fputc(info,f);fputc(0,f);put_u16(f,shndx);put_u64(f,value);put_u64(f,size);
+}
+static void write_elf64_shdr(FILE*f,uint32_t name,uint32_t type,uint64_t flags,uint64_t addr,uint64_t off,uint64_t size,uint32_t link,uint32_t info,uint64_t align,uint64_t entsize){
+    put_u32(f,name);put_u32(f,type);put_u64(f,flags);put_u64(f,addr);put_u64(f,off);put_u64(f,size);put_u32(f,link);put_u32(f,info);put_u64(f,align);put_u64(f,entsize);
+}
+static void write_elf64_rela(FILE*f,uint64_t off,uint64_t info,int64_t addend){
+    put_u64(f,off);put_u64(f,info);put_u64(f,(uint64_t)addend);
+}
+static int write_elf64_object(Asm*a,const char*rawpath,const char*outpath){
+    FILE*rf=fopen(rawpath,"rb");if(!rf){perror(rawpath);return 0;}fseek(rf,0,SEEK_END);long rsz=ftell(rf);if(rsz<0){fclose(rf);return 0;}rewind(rf);
+    uint8_t*text=NULL;if(rsz){text=(uint8_t*)malloc((size_t)rsz);if(!text){fclose(rf);return 0;}if(fread(text,1,(size_t)rsz,rf)!=(size_t)rsz){free(text);fclose(rf);return 0;}}fclose(rf);
+
+    char strtab[16384];size_t strsz=1;strtab[0]=0;uint32_t gname[128];int gcount=0;uint32_t gvalue[128];
+    for(int gi=0;gi<a->nglobals;gi++){
+        uint32_t v=0;if(!sym_find(a,a->globals[gi],&v)){fprintf(stderr,"x86-as: error: global symbol '%s' is not defined\n",a->globals[gi]);free(text);return 0;}
+        size_t n=strlen(a->globals[gi])+1;if(strsz+n>sizeof(strtab)){fprintf(stderr,"x86-as: error: ELF string table overflow\n");free(text);return 0;}
+        gname[gcount]=(uint32_t)strsz;gvalue[gcount]=v;memcpy(strtab+strsz,a->globals[gi],n);strsz+=n;gcount++;
+    }
+    for(int ri=0;ri<a->nrelocs;ri++){
+        if(global_index(a,a->relocs[ri].symbol)<0){fprintf(stderr,"x86-as: error: relocation target '%s' is not GLOBAL\n",a->relocs[ri].symbol);free(text);return 0;}
+    }
+
+    static const char shstr[]="\0.text\0.rela.text\0.symtab\0.strtab\0.shstrtab\0";
+    const uint64_t ehsize=64, text_off=64;
+    uint64_t rela_off=align_up_u64(text_off+(uint64_t)rsz,8);
+    uint64_t rela_size=(uint64_t)a->nrelocs*24;
+    uint64_t sym_off=align_up_u64(rela_off+rela_size,8);
+    uint64_t sym_count=(uint64_t)(2+gcount), sym_size=sym_count*24;
+    uint64_t str_off=sym_off+sym_size;
+    uint64_t shstr_off=str_off+(uint64_t)strsz;
+    uint64_t shoff=align_up_u64(shstr_off+(uint64_t)sizeof(shstr)-1,8);
+
+    FILE*f=fopen(outpath,"wb");if(!f){perror(outpath);free(text);return 0;}
+    unsigned char ident[16]={0x7f,'E','L','F',2,1,1,0,0,0,0,0,0,0,0,0};fwrite(ident,1,16,f);
+    put_u16(f,1);              /* ET_REL */
+    put_u16(f,62);             /* EM_X86_64 */
+    put_u32(f,1);              /* EV_CURRENT */
+    put_u64(f,0);              /* e_entry */
+    put_u64(f,0);              /* e_phoff */
+    put_u64(f,shoff);          /* e_shoff */
+    put_u32(f,0);              /* e_flags */
+    put_u16(f,(uint16_t)ehsize);put_u16(f,0);put_u16(f,0);put_u16(f,64);put_u16(f,6);put_u16(f,5);
+    pad_to(f,text_off);if(rsz)fwrite(text,1,(size_t)rsz,f);free(text);
+    pad_to(f,rela_off);
+    for(int ri=0;ri<a->nrelocs;ri++){
+        int gi=global_index(a,a->relocs[ri].symbol);uint64_t symidx=(uint64_t)(2+gi);
+        uint64_t info=(symidx<<32)|a->relocs[ri].type;
+        write_elf64_rela(f,a->relocs[ri].offset,info,a->relocs[ri].addend);
+    }
+    pad_to(f,sym_off);
+    write_elf64_sym(f,0,0,0,0,0);                       /* null */
+    write_elf64_sym(f,0,3,1,0,0);                       /* local STT_SECTION .text */
+    for(int i=0;i<gcount;i++)write_elf64_sym(f,gname[i],0x10,1,gvalue[i],0); /* GLOBAL NOTYPE */
+    pad_to(f,str_off);fwrite(strtab,1,strsz,f);
+    pad_to(f,shstr_off);fwrite(shstr,1,sizeof(shstr)-1,f);
+    pad_to(f,shoff);
+    write_elf64_shdr(f,0,0,0,0,0,0,0,0,0,0);
+    write_elf64_shdr(f,1,1,0x6,0,text_off,(uint64_t)rsz,0,0,16,0);
+    write_elf64_shdr(f,7,4,0,0,rela_off,rela_size,3,1,8,24);
+    write_elf64_shdr(f,18,2,0,0,sym_off,sym_size,4,2,8,24);
+    write_elf64_shdr(f,26,3,0,0,str_off,(uint64_t)strsz,0,0,1,0);
+    write_elf64_shdr(f,34,3,0,0,shstr_off,(uint64_t)sizeof(shstr)-1,0,0,1,0);
+    if(fclose(f)!=0){perror(outpath);remove(outpath);return 0;}
+    return 1;
+}
+
+static int write_bjobj(Asm*a,const char*rawpath,const char*outpath){
+ FILE *rf=fopen(rawpath,"rb"),*f; long sz; unsigned char *buf;
+ if(!rf){perror(rawpath);return 0;} fseek(rf,0,SEEK_END);sz=ftell(rf);fseek(rf,0,SEEK_SET);
+ buf=(unsigned char*)malloc((size_t)sz);if(!buf){fclose(rf);return 0;}
+ if(sz&&fread(buf,1,(size_t)sz,rf)!=(size_t)sz){fclose(rf);free(buf);return 0;}fclose(rf);
+ f=fopen(outpath,"wb");if(!f){perror(outpath);free(buf);return 0;}
+ fwrite("BJO1",1,4,f);put_u32(f,(uint32_t)sz);put_u16(f,(uint16_t)a->nglobals);put_u16(f,(uint16_t)a->nrelocs);
+ for(int i=0;i<a->nglobals;i++){char nm[64]={0};uint32_t v=0;int def=sym_find(a,a->globals[i],&v);snprintf(nm,sizeof(nm),"%s",a->globals[i]);fwrite(nm,1,64,f);put_u32(f,v);fputc(def?1:0,f);}
+ for(int i=0;i<a->nrelocs;i++){char nm[64]={0};snprintf(nm,sizeof(nm),"%s",a->relocs[i].symbol);fwrite(nm,1,64,f);put_u32(f,a->relocs[i].offset);fputc((int)a->relocs[i].type,f);}
+ if(sz) fwrite(buf,1,(size_t)sz,f);
+ fclose(f);free(buf);return 1;
+}
+
+static void usage(const char*argv0){printf("x86-as %s\nusage: %s [-m64] [-f bin|elf64|bjobj] INPUT.asm -o OUTPUT\n",X86AS_VERSION,argv0);}
+int main(int argc,char**argv){
+    if(argc==2&&(!strcmp(argv[1],"--version")||!strcmp(argv[1],"version"))){printf("x86-as %s\n",X86AS_VERSION);return 0;}
+    const char*in=NULL,*out=NULL,*format="bin";int mode_bits=16;
+    for(int i=1;i<argc;i++){
+        if(!strcmp(argv[i],"-m64")){mode_bits=64;}
+        else if(!strcmp(argv[i],"-f")&&i+1<argc){format=argv[++i];if(strcmp(format,"bin")&&strcmp(format,"elf64")&&strcmp(format,"bjobj")){fprintf(stderr,"x86-as: unsupported output format '%s'\n",format);return 2;}}
+        else if(!strcmp(argv[i],"-I")&&i+1<argc){if(n_include_dirs<32)include_dirs[n_include_dirs++]=argv[++i];else return 2;}
+        else if(!strncmp(argv[i],"-I",2)&&argv[i][2]){if(n_include_dirs<32)include_dirs[n_include_dirs++]=argv[i]+2;else return 2;}
+        else if(!strcmp(argv[i],"-o")&&i+1<argc)out=argv[++i];
+        else if(argv[i][0]=='-'){usage(argv[0]);return 2;}else in=argv[i];
+    }
+    if(!in||!out){usage(argv[0]);return 2;}
+    if(!strcmp(format,"elf64")&&mode_bits!=64){fprintf(stderr,"x86-as: -f elf64 requires -m64\n");return 2;}
+    Asm*a=calloc(1,sizeof(*a));if(!a)return 1;a->cpu_level=86;a->mode_bits=mode_bits;a->output_elf64=!strcmp(format,"elf64");a->output_bjobj=!strcmp(format,"bjobj");preprocess(a,in);
+    char*rawpath=NULL;const char*passout=out;
+    if(a->output_elf64||a->output_bjobj){size_t n=strlen(out)+32;rawpath=(char*)malloc(n);if(!rawpath){free(a);return 1;}snprintf(rawpath,n,"%s.x86as.tmp",out);passout=rawpath;}
+    if(!run_pass(a,1,passout)){free(rawpath);free(a);return 1;}
+    /*
+     * Pass 2 may change instruction widths once forward symbols are known
+     * (notably short/near control flow).  It also refreshes symbol values.
+     * Emit once more using those settled values so forward CALL/JMP
+     * displacements match the final layout.
+     */
+    if(!run_pass(a,2,passout)){remove(passout);free(rawpath);free(a);return 1;}
+    uint32_t code_bytes=a->pc;
+    if(a->output_elf64){if(!write_elf64_object(a,passout,out)){remove(passout);free(rawpath);free(a);return 1;}remove(passout);}
+    else if(a->output_bjobj){if(!write_bjobj(a,passout,out)){remove(passout);free(rawpath);free(a);return 1;}remove(passout);}
+    printf("assembled %s -> %s (%u code bytes, %d-bit mode, %s)\n",in,out,code_bytes,a->mode_bits,format);
+    free(rawpath);free(a);return 0;
+}

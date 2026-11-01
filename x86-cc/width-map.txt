@@ -1,0 +1,37 @@
+727:    int expr_width; /* scalar result width: 1/2/4; pointers are always 2 */
+884:static int g_function_param_width[32][8];
+885:static int g_function_return_width[32];
+917:static int function_param_width(const char *name, int index) {
+922:            return g_function_param_width[i][index];
+928:static int function_return_width(const char *name) {
+931:        if (!strcmp(g_function_names[i], name)) return g_function_return_width[i];
+1181:                    int want_width = function_param_width(name, argc);
+1187:                        if (b->expr_width != 4) fprintf(b->out, "    xor dx, dx\n");
+1204:            b->expr_width = function_return_width(name);
+1217:                b->expr_width = 4; b->expr_is_pointer = 0; b->expr_pointer_char = 0; b->expr_struct_id = -1;
+1295:        b->expr_width = b->locals[idx].is_pointer ? 2 : b->locals[idx].width;
+1331:    b->expr_width = 2;
+1359:        b->expr_width = 2; b->expr_is_pointer = 0; b->expr_pointer_char = 0; b->expr_struct_id = -1;
+1400:            if (cast_width == 4 && b->expr_width != 4) fprintf(b->out, "    xor dx, dx\n");
+1401:            if (!cast_void) b->expr_width = cast_width;
+1607:        b->expr_is_pointer = 0; b->expr_width = 2;
+1617:        b->expr_is_pointer = 0; b->expr_width = 2;
+1628:        b->expr_is_pointer = 0; b->expr_width = 2;
+2213:                    if (b->expr_width != 4) fprintf(b->out, "    xor dx, dx\n");
+2270:                        b->expr_width = b->locals[idx].width;
+2474:    int param_width[8];
+2475:    int return_width;
+2510:        int parsed_param_width[8] = {0};
+2513:        int np = 0, is_def = 0, parsed_return_width = 0;
+2532:          if (!scan_decl_type(&q, &ret_char, &parsed_return_width)) { p++; continue; }
+2562:                  parsed_param_width[np] = parsed_param_pointer[np] ? 2 : pw;
+2603:                            f[k].param_width[t] != parsed_param_width[t] ||
+2604:                            f[k].return_width != parsed_return_width) return -1;
+2611:        f[n].return_width = parsed_return_width;
+2619:                f[n].param_width[k] = parsed_param_width[k];
+2671:            g_function_return_width[sym] = decls[i].return_width;
+2675:                g_function_param_width[sym][j] = decls[i].param_width[j];
+2685:                       decls[i].param_width[0] == 2 && decls[i].param_is_pointer[1] == 2 &&
+2733:                after_bytes += (defs[i].param_width[k] == 4 && !defs[i].param_is_pointer[k]) ? 4 : 2;
+2737:            b.locals[j].width = defs[i].param_is_pointer[j] ? 2 : defs[i].param_width[j];
+2751:        if (!b.ok || (defs[i].return_width != 0 && !saw) || b.total_locals != frame / 2) {

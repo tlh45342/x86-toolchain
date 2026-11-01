@@ -1,0 +1,24 @@
+sample,level,binary_bytes,trace_instructions,host_vm_ms
+return42,O0,4,2,47.51
+return42,O1,4,2,45.23
+struct_basic,O0,85,43,44.8
+struct_basic,O1,71,36,45.37
+struct_typed_layout,O0,92,45,129.39
+struct_typed_layout,O1,74,36,49.15
+if_true,O0,61,24,43.23
+if_true,O1,59,23,44.79
+if_else_blocks,O0,67,25,44.25
+if_else_blocks,O1,63,23,47.64
+long_if_body,O0,580,262,93.83
+long_if_body,O1,528,236,60.08
+logical_and_true,O0,73,26,49.1
+logical_and_true,O1,71,25,49.7
+logical_or_false,O0,73,27,43.87
+logical_or_false,O1,71,26,160.35
+runtime_mul_locals,O0,43,21,42.29
+runtime_mul_locals,O1,41,20,55.72
+array_loop,O0,223,221,55.97
+array_loop,O1,205,201,53.18
+large_local_array,O0,368,315,68.46
+large_local_array,O1,358,310,59.69
+PASS measured 22 executions; host timings include VM startup

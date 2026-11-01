@@ -1,0 +1,1 @@
+gcc -std=c11 -Wall -Wextra -O2 -o x86-cc.exe x86-cc.c

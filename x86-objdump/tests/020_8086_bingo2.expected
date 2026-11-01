@@ -1,0 +1,12 @@
+add bh,bh
+add ah,0x8
+adc cx,cx
+cmp bp,0x00D1
+sbb cx,byte -0x2
+sub ax,bp
+sub ah,bh
+adc bh,bh
+not bl
+not dx
+shl ax,1
+jcxz 0x101C

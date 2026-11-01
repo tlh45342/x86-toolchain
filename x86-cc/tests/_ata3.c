@@ -1,0 +1,1 @@
+int f(unsigned long lba,void *buf,unsigned int count){unsigned int done;done=0;while(done<count){lba=lba+1;buf=(void *)((unsigned char *)buf+512);done=done+1;}return (int)done;} int main(void){return 0;}\n

@@ -1,0 +1,11 @@
+test dl, dl
+mul [bp+0x1A]
+xchg ax, cx
+div cx
+xchg ax, dx
+div [bp+0x18]
+ror cl, 1
+or cl, ah
+inc cx
+jc 0x1013
+hlt

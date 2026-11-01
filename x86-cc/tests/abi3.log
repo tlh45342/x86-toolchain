@@ -1,0 +1,40 @@
+logfile opened: tests\abi3.log
+Version: 0.0.22
+created vm id=0 (current)
+0000:1000  E8 20 00                 call 0x1023
+0000:1023  55                       push bp
+0000:1024  89 E5                    mov bp, sp
+0000:1026  B8 14 00                 mov ax, 0x0014
+0000:1029  50                       push ax
+0000:102A  B8 0C 00                 mov ax, 0x000C
+0000:102D  50                       push ax
+0000:102E  B8 0A 00                 mov ax, 0x000A
+0000:1031  50                       push ax
+0000:1032  E8 CF FF                 call 0x1004
+0000:1004  55                       push bp
+0000:1005  89 E5                    mov bp, sp
+0000:1007  8B 46 04                 mov ax, [bp+0x4]
+0000:100A  50                       push ax
+0000:100B  8B 46 06                 mov ax, [bp+0x6]
+0000:100E  5B                       pop bx
+0000:100F  01 C3                    add bx, ax
+0000:1011  89 D8                    mov ax, bx
+0000:1013  50                       push ax
+0000:1014  8B 46 08                 mov ax, [bp+0x8]
+0000:1017  5B                       pop bx
+0000:1018  01 C3                    add bx, ax
+0000:101A  89 D8                    mov ax, bx
+0000:101C  E9 00 00                 jmp 0x101F
+0000:101F  89 EC                    mov sp, bp
+0000:1021  5D                       pop bp
+0000:1022  C3                       ret
+0000:1035  5B                       pop bx
+0000:1036  5B                       pop bx
+0000:1037  5B                       pop bx
+0000:1038  E9 00 00                 jmp 0x103B
+0000:103B  89 EC                    mov sp, bp
+0000:103D  5D                       pop bp
+0000:103E  C3                       ret
+0000:1003  F4                       hlt
+AX=002A BX=0014 CX=0000 DX=0000  SI=0000 DI=0000 BP=0000 SP=FFFE
+CS=0000 IP=1004 DS=0000 ES=0000 SS=0000  FLAGS=0002

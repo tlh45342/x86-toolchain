@@ -1,0 +1,8 @@
+mov ax,0xb800
+mov es,ax
+mov di,0x0000
+mov ax,0x0748
+mov [es:di],ax
+mov ax,0x0769
+mov [es:di+0x2],ax
+hlt

@@ -1,0 +1,6 @@
+cmp al,0x78
+jnz 0x1005
+nop
+call 0x1009
+hlt
+ret

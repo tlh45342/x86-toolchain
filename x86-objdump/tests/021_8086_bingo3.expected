@@ -1,0 +1,24 @@
+mov ax, 0x0000
+push ax
+popf
+pushf
+pop ax
+mov bx, ax
+and bx, 0xF000
+mov ax, 0x1234
+mov [0x2000], ax
+mov ax, 0x0000
+mov ax, [0x2000]
+mov al, 0x5A
+mov [0x2002], al
+mov al, 0x00
+mov al, [0x2002]
+and al, 0x0F
+and ax, 0x0FFF
+mov cx, 0x00FF
+and ax, cx
+and cx, ax
+mov word [0x2010], 0xBEEF
+mov word [0x2012], 0x1234
+lds si, [0x2010]
+hlt

@@ -1,0 +1,1 @@
+#define MACRO_INCLUDE_VALUE 42

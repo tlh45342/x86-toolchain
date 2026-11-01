@@ -1,0 +1,10 @@
+lea dx,[bx+si+0x4]
+mov al,[bx]
+mov [bx+0x1],al
+mov dx,[bp+si+0x2]
+mov word [di],0x1234
+push ax
+push di
+pop di
+pop ax
+hlt

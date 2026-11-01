@@ -1,0 +1,13 @@
+test al, 0x80
+test ax, 0x80B5
+test bx, cx
+test [bp+0x4], ax
+std
+scasb
+scasw
+repe scasw
+sub [cs:si+0x12], 0x10
+ret
+ret 0x4
+retf
+retf 0x6

@@ -1,0 +1,5 @@
+stosb
+lodsb
+call 0x1006
+hlt
+ret

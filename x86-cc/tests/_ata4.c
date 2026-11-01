@@ -1,0 +1,1 @@
+unsigned int in8(unsigned int p){asm { mov dx, [bp+4] in al, dx xor ah, ah } return;} int f(void){unsigned int s;s=in8(0x1f7);if((s&1)!=0)return -5;return 0;} int main(void){return 0;}\n
