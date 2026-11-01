@@ -1,0 +1,50 @@
+# x86-toolchain: generated binaries and build outputs
+# Keep assembler/compiler source files (.asm, .c, .h), test inputs,
+# Makefiles, documentation, and intentional binary fixtures in Git.
+
+# Compiled host executables and libraries
+*.exe
+*.dll
+*.pdb
+*.ilk
+*.lib
+*.a
+*.so
+*.dylib
+
+# Generated target objects and disk/image outputs
+*.o
+*.obj
+*.bin
+*.img
+*.iso
+*.vmdk
+*.vhd
+*.qcow2
+
+# Build directories and intermediate outputs
+**/build/
+**/dist/
+*.tmp
+*.x86as.tmp
+
+# Test logs and generated diagnostics
+*.log
+*.err
+*.out
+*.pyc
+__pycache__/
+.pytest_cache/
+
+# Editor and OS clutter
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Intentionally checked-in binary test fixtures can be exempted with
+# git add -f path/to/fixture (or an explicit ! exception here).
